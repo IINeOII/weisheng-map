@@ -35,6 +35,7 @@ export const nameKey = (n) => String(n || "")
 /** 地址去掉縣市、鄉鎮區，只留路名門牌（OSM 的 addr:street + addr:housenumber 通常沒有縣市） */
 export const addrTail = (a) => addrKey(a).replace(/^..[市縣]/, "").replace(/^[^路街道段巷弄號]{1,3}?[區鄉鎮市](?=.)/, "");
 const CITY = (addr) => (cleanAddress(addr).match(/^(..[市縣])/) || [])[1] || "";
+const DISTRICT = (addr) => (cleanAddress(addr).match(/^..[市縣](.{1,3}?[區鄉鎮市])/) || [])[1] || "";
 // OSM 比對只在這些城市的範圍內找，避免「中正路 18 號」對到別的縣市
 const CITY_BOX = { 臺北市: AREAS.台北, 新北市: AREAS.新北, 桃園市: AREAS.桃園, 臺中市: AREAS.台中, 臺南市: AREAS.台南, 高雄市: AREAS.高雄 };
 const inBox = (v, box) => box && v.lat >= box[0] && v.lat <= box[2] && v.lng >= box[1] && v.lng <= box[3];
@@ -49,7 +50,7 @@ async function readLookup(file) {
     if (!line.trim()) continue;
     const e = JSON.parse(line);
     size++;
-    const v = { lat: e.lat, lng: e.lon, osm: `${e.type}/${e.id}`, name: e.name || "", city: e.city || "" };
+    const v = { lat: e.lat, lng: e.lon, osm: `${e.type}/${e.id}`, name: e.name || "", city: e.city || "", district: (e.district || "").replace(/台/g, "臺") };
     if (e.addr) add(byAddr, addrTail(e.addr), v);
     if (e.name) add(byName, nameKey(e.name), v);
   }
@@ -118,10 +119,12 @@ export async function importGov({ offline, cache, lookupFile, manualFile = path.
   const known = new Map();
   for (const r of raw) if (r.given) known.set(addrKey(r.address), r.given);
 
-  const unique = (list, city) => {
-    const box = CITY_BOX[city];
+  // strictDistrict：地址比對時，OSM 那一筆一定要標明是同一個區（不同區常有同名道路）
+  const unique = (list, address, strictDistrict) => {
+    const box = CITY_BOX[CITY(address)];
     if (!box) return null; // 不知道城市範圍就不比對，寧可列為待補
-    const hits = (list || []).filter((v) => inBox(v, box));
+    const d = DISTRICT(address);
+    const hits = (list || []).filter((v) => inBox(v, box) && (v.district ? v.district === d : !strictDistrict));
     // 同名或同地址卻在不同地方（例如連鎖機構、不同區的同名道路）就不猜
     if (!hits.length) return null;
     const far = hits.some((h) => Math.hypot(h.lat - hits[0].lat, h.lng - hits[0].lng) > 0.002);
@@ -136,8 +139,8 @@ export async function importGov({ offline, cache, lookupFile, manualFile = path.
     if (manual.has(k)) { c = manual.get(k); via = "人工確認"; }
     else if (r.given) { c = r.given; via = "資料集座標"; }
     else if (known.has(k)) { c = known.get(k); via = "同地址的其他資料"; }
-    else if ((c = unique(lookup.byAddr.get(addrTail(r.address)), CITY(r.address)))) via = "OSM 地址";
-    else if ((c = unique(lookup.byName.get(nameKey(r.name)), CITY(r.address)))) via = "OSM 同名地點";
+    else if ((c = unique(lookup.byAddr.get(addrTail(r.address)), r.address, true))) via = "OSM 地址";
+    else if ((c = unique(lookup.byName.get(nameKey(r.name)), r.address, false))) via = "OSM 同名地點";
     if (!c || !inTaiwan(...c)) {
       if (!unresolved.some((u) => u.name === r.name && u.address === cleanAddress(r.address))) unresolved.push({ source: r.source, name: r.name, address: cleanAddress(r.address) });
       continue;

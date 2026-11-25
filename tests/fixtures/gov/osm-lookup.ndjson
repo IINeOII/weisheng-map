@@ -1,5 +1,7 @@
 {"type": "node", "id": 101, "lat": 25.0128, "lon": 121.4625, "name": "新北市板橋區公所"}
-{"type": "way", "id": 102, "lat": 24.9823, "lon": 121.4441, "addr": "中正路18號"}
+{"type": "way", "id": 102, "lat": 24.9823, "lon": 121.4441, "addr": "中正路18號", "district": "土城區"}
 {"type": "node", "id": 103, "lat": 22.6, "lon": 120.3, "addr": "中正路18號"}
 {"type": "node", "id": 104, "lat": 25.03, "lon": 121.5, "name": "廣安居"}
 {"type": "node", "id": 105, "lat": 25.1, "lon": 121.55, "name": "廣安居"}
+{"type": "node", "id": 106, "lat": 24.98, "lon": 121.42, "addr": "府中路30號"}
+{"type": "node", "id": 107, "lat": 25.03, "lon": 121.86, "addr": "中正路18號", "district": "雙溪區"}

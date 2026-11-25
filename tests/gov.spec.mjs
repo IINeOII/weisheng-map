@@ -52,9 +52,16 @@ test.describe("政府開放資料", () => {
     const r = await run();
     expect(byName(r, "臺北市中正社會福利服務中心", "hygiene")).toMatchObject({ a: 25.03292, h: expect.stringContaining("週一至週五") }); // 同地址
     expect(byName(r, "社團法人台灣芒草心慈善協會淋浴服務據點-香香澡堂")).toMatchObject({ a: 25.0339, o: 121.4995 }); // sources/coords.csv
-    expect(byName(r, "新北市土城社會福利服務中心")).toMatchObject({ a: 24.9823 }); // OSM 地址，排除高雄同名路
+    expect(byName(r, "新北市土城社會福利服務中心")).toMatchObject({ a: 24.9823 }); // OSM 地址：排除高雄、雙溪區的同名路
     expect(byName(r, "新北市板橋區公所")).toMatchObject({ a: 25.0128 }); // OSM 名稱
     expect(r.how).toMatchObject({ 資料集座標: 5, 同地址的其他資料: 2, 人工確認: 1, "OSM 地址": 1, "OSM 同名地點": 1 });
+  });
+
+  test("地址比對一定要對上同一個區：沒標區、或別區的同名道路都不採用", async () => {
+    const r = await run();
+    // 板橋區公所的地址在對照表裡只有一筆沒標區的，不採用；改由「OSM 同名地點」找到
+    expect(byName(r, "新北市板橋區公所")).toMatchObject({ a: 25.0128 });
+    expect(byName(r, "新北市土城社會福利服務中心").a).not.toBeCloseTo(25.03, 2);
   });
 
   test("找不到可靠座標就不放上地圖、不猜位置，列在報告裡等人補", async () => {

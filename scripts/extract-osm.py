@@ -43,6 +43,10 @@ def lookup_entry(tags):
         entry["addr"] = addr
     if tags.get("addr:city"):
         entry["city"] = tags.get("addr:city")
+    # 鄉鎮市區：不同區常有同名道路（例如每個區都有中正路），比對地址時一定要對上
+    district = tags.get("addr:district") or tags.get("addr:suburb") or tags.get("addr:town") or ""
+    if district:
+        entry["district"] = district
     return entry
 
 
