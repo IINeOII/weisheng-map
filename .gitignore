@@ -16,3 +16,6 @@ ios/App/App.xcworkspace/xcuserdata/
 # 測試產物
 test-results/
 playwright-report/
+# 地點資料由 GitHub Actions 每週建置，不放進版本控制
+docs/data/osm/
+build/

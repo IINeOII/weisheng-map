@@ -501,6 +501,7 @@
       <ul><li>地圖和大部分地點：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> 貢獻者（ODbL 授權）</li>
       <li>平價餐點、待用餐、贊助店家：使用者回報，經人工確認</li>
       <li>超商惜食時段：各品牌公開資訊，${esc(state.chains?.lastChecked || "")} 確認</li></ul>
+      ${state.dataInfo?.osmTimestamp ? `<p class="note">地點資料更新於 ${esc(state.dataInfo.osmTimestamp.slice(0, 10))}，每週更新一次。</p>` : ""}
       <h3>隱私</h3>
       <p>不用註冊。你的位置只在你的手機上用來算距離，不會上傳。${window.Native.isApp ? "" : "廣告是非個人化廣告。"}<a href="privacy.html">閱讀完整隱私權政策</a></p>
       <div class="refuse">資料可能有誤或過期，出發前打電話確認最保險。需要急難協助可撥 <b>1957</b> 福利諮詢專線；有立即危險請撥 <b>110</b> 或 <b>119</b>。</div>`;
@@ -647,6 +648,7 @@
   // ── 啟動 ──
   (async function init() {
     state.chains = await window.Sources.fetchChainDiscounts();
+    window.Sources.dataInfo().then((d) => (state.dataInfo = d));
     const h = location.hash.slice(1);
     map.addLayer(groups.free);
     setSheet("peek");

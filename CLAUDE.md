@@ -14,11 +14,11 @@
 
 1. **先查 `CONSTRAINTS.md`。** 碰到商店、地圖服務、廣告、金流、法規、執行環境的功能，先確認有沒有限制；查不到就先查證再寫。不要寫完才發現不能用。
 2. **說清楚這個改動解決誰的什麼問題。** 「更好看」「多一個平台」是手段；要回答它讓哪類使用者更快找到資源，或讓專案多撐多久。答不出來就先別做。
-3. **確認資料會不會讓畫面變空。** 新類別、新城市，先看真實資料量：GitHub Actions →「資料覆蓋率」，或 `node scripts/coverage.mjs 地區`。
+3. **確認資料會不會讓畫面變空。** 新類別、新城市，先看真實資料量：GitHub Actions「發佈網頁版」每次執行的 Summary 頁，或 `node scripts/coverage.mjs 地區`。
 
 ## 寫程式
 
-4. **單一來源，不手抄清單。** 類別定義只在 `categories.js`；套件 ID 用 `scripts/set-app-id.mjs` 改。需要同步的清單（例如 `sw.js` 的 SHELL）一定要有 `check.mjs` 檢查。
+4. **單一來源，不手抄清單。** 類別判斷只在 `categories.js` 的 `match()`，資料建置、覆蓋率、App 都用它；套件 ID 用 `scripts/set-app-id.mjs` 改。需要同步的清單（例如 `sw.js` 的 SHELL）一定要有 `check.mjs` 檢查。
 5. **量測，不要假設尺寸。** 版面要配合實際元素高度，例如浮動按鈕位置用 ResizeObserver 算出來，不要寫死數字。
 6. **用到瀏覽器內建語意時，確認沒被覆蓋。** 例如 `[hidden]` 被 CSS 的 `display` 蓋掉；表單的 `form.name` 是表單自己的屬性，要用 `form.elements.namedItem("name")`。
 7. **每個畫面都要設計五種狀態：** 有資料、沒資料、沒有名稱或欄位缺漏、沒設定（設定檔是空的）、離線或失敗。給使用者看的文字不能出現 JSON 或程式術語。
@@ -40,7 +40,7 @@
 |---|---|
 | `npm run check` | 靜態檢查（幾秒）：語法、圖示、離線快取清單、資料格式、原生設定一致 |
 | `npm test` | 靜態檢查加上瀏覽器測試（網頁版與模擬 App 模式） |
-| `node scripts/coverage.mjs 萬華` | 查真實的 OSM 資料量（不需要 npm install）；也可以在 GitHub 的 Actions →「資料覆蓋率」直接執行 |
+| `node scripts/coverage.mjs 萬華` | 查真實資料量（不需要 npm install，讀已發佈網站的資料）；每次發佈時 GitHub 也會把全部區域的結果寫在 Summary 頁 |
 | `npm run check:release` | 上架關卡：沒填的金鑰、信箱、底圖都會擋下 |
 | `npm run release:android`／`release:ios` | 通過所有檢查後才開啟 Android Studio／Xcode |
 
@@ -64,10 +64,11 @@
 | R3 | `sw.js` 清單改了 3 次、README 改寫 3 次、測試因為 class 改名壞了 2 次、換套件 ID 要重建專案 | 同一件事寫在好幾個地方 | `check.mjs` 交叉比對；`set-app-id.mjs`；規則 4、11 |
 | R4 | 測試寫在暫存資料夾，交付的專案裡沒有任何測試；全部都只用假資料驗證 | 驗證是一次性的，而且不是真實環境 | `tests/` 加 CI；`npm run coverage`；規則 10、14 |
 | R5 | 測試寫了，卻抓不到 App 內出現 AdSense | 「不存在」的檢查在資料載入前就通過 | 規則 12、13 |
+| R7 | App 的核心資料來源（使用者打開時即時查 Overpass）其實不穩定，也違反供應方建議；直到第一次在真實網路環境跑才發現 | 外部服務的可用性和使用政策沒查；只在假資料上驗證 | 改為每週建置靜態資料（C12、C13）；第一次接觸外部服務就要用真實請求驗證一次 |
 | R6 | 叫使用者「在專案資料夾執行」，但他電腦上根本沒有專案；腳本路徑和引號在 Windows 上會壞 | 預設了使用者的環境和自己一樣（Linux、已 clone） | 規則 15；CI 加 Windows；覆蓋率改由 GitHub Actions 執行 |
 
 **共同根因：**
-1. 外部限制太晚查證（R2）
+1. 外部限制太晚查證（R2、R7）
 2. 驗證是一次性、假環境，而且沒有確認測試抓得到錯誤（R4、R5、R6）
 3. 同一件事有好幾個來源（R3、B5）
 4. 只設計了正常狀態（B1、B6、B7）

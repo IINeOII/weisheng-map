@@ -52,17 +52,28 @@ capacitor.config.json App 名稱、套件 ID、啟動畫面等設定
 node scripts/set-app-id.mjs org.yourname.weisheng
 ```
 
+## 地點資料從哪裡來
+
+使用者打開地圖時，**不會**即時去查第三方伺服器。資料流程是這樣：
+
+1. GitHub Actions 每週一從 Geofabrik 下載 OpenStreetMap 的台灣資料檔
+2. `scripts/extract-osm.py` 挑出可能有用的地點
+3. `scripts/build-tiles.mjs` 用 `docs/js/categories.js` 分類，切成 0.1 度見方的小檔案
+4. 這些檔案跟網站一起發佈到 `…/data/osm/`；App 只載入畫面需要的格子
+
+想改分類規則，只要改 `categories.js`，下次發佈就會生效。地點資料不放進 git，每次發佈時重新建置。
+
 ## 在加任何功能之前：先看真實資料夠不夠
 
-**最簡單：不用安裝任何東西。** 到 GitHub 倉庫 → Actions → 左邊選「資料覆蓋率」→ 右邊按 **Run workflow**。大約 2 分鐘後，點進那次執行，Summary 頁就會列出每個區域、每個類別的數量。之後每週一也會自動跑一次。
+**最簡單：不用安裝任何東西。** 到 GitHub 倉庫 → Actions →「發佈網頁版」→ 點最近一次執行 → Summary 頁會列出每個區域、每個類別的數量。
 
-在自己電腦上跑也可以，只需要 Node.js 18 以上，不用 `npm install`：
+在自己電腦上看也可以，只需要 Node.js 18 以上，不用 `npm install`，會讀已發佈網站上的資料：
 
 ```bash
-node scripts/coverage.mjs 萬華     # 也可以換成 台北、新北、台中、台南、高雄、wanhua、taipei-station…
+node scripts/coverage.mjs 萬華     # 也可以換成 台北、新北、台中、台南、高雄、wanhua、taipei-station，或 南,西,北,東
 ```
 
-這會列出每個類別在 OpenStreetMap 上實際有幾筆。標「沒有資料」「極少」的類別，使用者打開只會看到空地圖。先把資料補起來（MapComplete、和在地社福團體合作），比做新功能更重要。
+標「沒有資料」「極少」的類別，使用者打開只會看到空地圖。先把資料補起來（MapComplete、和在地社福團體合作），比做新功能更重要。補進 OpenStreetMap 的資料，下一次每週更新後就會出現在地圖上。
 
 ## 測試與檢查
 

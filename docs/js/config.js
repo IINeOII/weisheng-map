@@ -8,7 +8,7 @@ window.APP_CONFIG = {
   // 預設地圖中心（台北車站）與縮放
   defaultCenter: [25.0478, 121.5170],
   defaultZoom: 15,
-  // 低於這個縮放等級不向 Overpass 查詢（避免一次抓太大範圍）
+  // 低於這個縮放等級不載入地點（避免一次抓太大範圍）
   minQueryZoom: 13,
 
   // 底圖：OSM 官方圖磚只適合小流量。流量變大前請換成 MapTiler / Stadia / Carto 等有免費額度的服務
@@ -23,13 +23,12 @@ window.APP_CONFIG = {
   appTileUrl: "",
   appTileAttribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> 貢獻者',
 
-  // OpenStreetMap 即時資料（依序嘗試，失敗就換下一個）
-  overpassEndpoints: [
-    "https://overpass-api.de/api/interpreter",
-    "https://overpass.private.coffee/api/interpreter",
-  ],
-  // 同一區域的查詢結果快取多久（毫秒）
-  cacheTtlMs: 6 * 60 * 60 * 1000,
+  // 地點資料（由 GitHub Actions 每週從 OpenStreetMap 台灣資料檔產生，見 scripts/build-tiles.mjs）
+  // 先找同一個網站底下的 data/osm；找不到（例如本機預覽、App）就改用已發佈的網站
+  dataUrl: "data/osm",
+  dataFallbackUrl: "https://iineoii.github.io/weisheng-map/data/osm",
+  // 已下載的地點在手機上保留多久（毫秒）；資料每週更新一次
+  cacheTtlMs: 3 * 24 * 60 * 60 * 1000,
 
   // ── 群眾回報 / 平價優惠 / 贊助店家後端（Supabase，免費方案即可）──
   // 留空 = 只讀取 data/deals.json，回報表單改為「複製內容」

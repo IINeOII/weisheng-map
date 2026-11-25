@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 測試資料管線用的迷你 OSM 檔：包含應該收錄與應該排除的邊界情況 -->
+<osm version="0.6" generator="weisheng-map-tests">
+  <!-- 應收錄 -->
+  <node id="1" version="1" lat="25.0482" lon="121.5160"><tag k="amenity" v="drinking_water"/><tag k="name" v="台北車站飲水機"/><tag k="opening_hours" v="24/7"/></node>
+  <node id="2" version="1" lat="25.0460" lon="121.5190"><tag k="amenity" v="social_facility"/><tag k="social_facility" v="soup_kitchen"/><tag k="name" v="測試供餐點"/><tag k="fee" v="no"/></node>
+  <node id="3" version="1" lat="25.0471" lon="121.5141"><tag k="amenity" v="device_charging_station"/></node>
+  <node id="5" version="1" lat="25.0450" lon="121.5150"><tag k="amenity" v="toilets"/><tag k="access" v="yes"/></node>
+  <node id="11" version="1" lat="25.0475" lon="121.5165"><tag k="shop" v="convenience"/><tag k="brand" v="全家便利商店"/><tag k="name" v="全家便利商店 測試店"/></node>
+  <node id="13" version="1" lat="25.0485" lon="121.5150"><tag k="tourism" v="hostel"/><tag k="name" v="測試青年旅館"/></node>
+  <!-- 面：庇護中心（應取中心點） -->
+  <node id="100" version="1" lat="25.0488" lon="121.5198"/>
+  <node id="101" version="1" lat="25.0488" lon="121.5202"/>
+  <node id="102" version="1" lat="25.0492" lon="121.5202"/>
+  <node id="103" version="1" lat="25.0492" lon="121.5198"/>
+  <way id="4" version="1"><nd ref="100"/><nd ref="101"/><nd ref="102"/><nd ref="103"/><nd ref="100"/>
+    <tag k="amenity" v="social_facility"/><tag k="social_facility" v="shelter"/><tag k="social_facility:for" v="homeless"/><tag k="name" v="測試庇護中心"/></way>
+  <!-- 應排除 -->
+  <node id="20" version="1" lat="25.0451" lon="121.5151"><tag k="amenity" v="toilets"/><tag k="access" v="customers"/></node>
+  <node id="21" version="1" lat="25.0452" lon="121.5152"><tag k="amenity" v="toilets"/><tag k="access" v="private"/></node>
+  <node id="22" version="1" lat="25.0453" lon="121.5153"><tag k="amenity" v="social_facility"/><tag k="social_facility" v="nursing_home"/><tag k="name" v="測試安養中心"/></node>
+  <node id="23" version="1" lat="25.0454" lon="121.5154"><tag k="amenity" v="bench"/></node>
+  <node id="24" version="1" lat="25.0455" lon="121.5155"><tag k="shop" v="convenience"/><tag k="name" v="路口雜貨店"/></node>
+  <node id="25" version="1" lat="25.0456" lon="121.5156"><tag k="amenity" v="drinking_water"/><tag k="drinking_water" v="no"/></node>
+  <node id="26" version="1" lat="25.0457" lon="121.5157"><tag k="highway" v="bus_stop"/></node>
+</osm>
