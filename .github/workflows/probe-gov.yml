@@ -1,0 +1,13 @@
+# 暫時用：在真實網路上查看政府資料集內容（合併前刪除）
+name: 查看政府資料集
+on:
+  push:
+    branches: [gov-open-data]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node scripts/probe-gov.mjs 121332 125392 83868 91950 171101 134363 67749 121330 135279 147413 111993 136031 97504
