@@ -10,4 +10,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
-      - run: node scripts/probe-gov.mjs 121332 125392 83868 91950 171101 134363 67749 121330 135279 147413 111993 136031 97504
+      - run: node scripts/probe-gov.mjs 147413 67749 111993 136031
+      - run: |
+          for u in https://odws.hccg.gov.tw/001/Upload/25/opendataback/9059/41/ed23511e-7aea-4014-82f2-35a73a23190e.csv https://www-ws.pthg.gov.tw/Upload/2015pthg/0/relfile/0/0/1044044a-6918-4ae5-b5c8-bf4723de298a.csv; do
+            curl -sS -m 30 -o /tmp/x.csv -w "%{http_code} %{size_download}\n" -A "weisheng-map/1.0" "$u" || true
+            curl -sS -m 30 -k -o /tmp/x.csv -w "insecure: %{http_code} %{size_download}\n" -A "weisheng-map/1.0" "$u" && head -c 600 /tmp/x.csv | iconv -f big5 -t utf-8 -c; echo
+          done
+      - run: >
+          node scripts/probe-gov.mjs --geocode
+          "臺北市中正區延平南路207號6樓" "臺北市中山區合江街137號3樓" "臺北市大安區四維路198巷30弄5號2樓之 9"
+          "新北市板橋區漢生東路２５８號三樓" "新北市土城區中正路１８號五樓"
+          "桃園市中壢區環北路391號" "桃園市桃園區陽明三街33號4樓"

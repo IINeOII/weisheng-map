@@ -120,6 +120,45 @@ export function twd97ToWgs84(x, y) {
   return [(lat * 180) / Math.PI, (lng * 180) / Math.PI];
 }
 
+/** 全形數字與符號轉半形；去掉換行、括號內說明、樓層、鄰里，讓地址比較好查。 */
+export function cleanAddress(addr) {
+  return String(addr || "")
+    .replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/　/g, " ")
+    .replace(/[\r\n]+/g, "")
+    .replace(/[（(][^）)]*[）)]/g, "")
+    .replace(/台/g, "臺")
+    .replace(/\d+鄰/g, "")
+    .replace(/(?<=[區鄉鎮市])[^\s區鄉鎮市路街道段巷弄號]{1,4}里(?=[^區鄉鎮市\s]*[路街道])/g, "")
+    .replace(/(\d+號)(之\d+)?.*$/, "$1$2")
+    .replace(/\s+/g, "")
+    .trim();
+}
+
+/**
+ * Nominatim 地址轉座標。依使用規範：每秒最多 1 次、自訂 User-Agent、結果要快取。
+ * 只在建置時呼叫，而且只查快取裡沒有的地址（scripts/import-gov.mjs）。
+ * 回傳 { lat, lng, precision: "house" | "street" | "area" } 或 null。
+ */
+let lastCall = 0;
+export async function geocode(address) {
+  const wait = lastCall + 1100 - Date.now();
+  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+  lastCall = Date.now();
+  const url = "https://nominatim.openstreetmap.org/search?" + new URLSearchParams({
+    q: address, countrycodes: "tw", format: "jsonv2", limit: "1", "accept-language": "zh-TW",
+  });
+  const res = await get(url);
+  const [hit] = await res.json();
+  if (!hit) return null;
+  const lat = +hit.lat, lng = +hit.lon;
+  if (!inTaiwan(lat, lng)) return null;
+  const t = hit.addresstype || hit.type || "";
+  const precision = /house|building|amenity|office|shop|place_of_worship|townhall|social_facility/.test(t) || hit.category === "amenity" || hit.category === "building" ? "house"
+    : /road|street|residential|pedestrian|primary|secondary|tertiary|unclassified/.test(t) ? "street" : "area";
+  return { lat: +lat.toFixed(6), lng: +lng.toFixed(6), precision, matched: hit.display_name };
+}
+
 /** 台灣本島與離島的大致範圍，用來擋掉經緯度寫反、填 0 或格式錯的資料。 */
 export const inTaiwan = (lat, lng) => lat > 21.8 && lat < 26.5 && lng > 118 && lng < 122.2;
 
