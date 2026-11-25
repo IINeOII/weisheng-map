@@ -3,6 +3,7 @@
  * 刻意包含容易出錯的邊界情況：沒有名稱的地點、過期資料、贊助店家、分類不明的資料。
  */
 import fs from "node:fs";
+import { buildTiles } from "../../scripts/build-tiles.mjs";
 
 export const CENTER = { latitude: 25.047, longitude: 121.517 };
 
@@ -39,7 +40,8 @@ const TILE = Buffer.from(
  * 攔截所有對外連線。options:
  *  config: 要覆寫的 APP_CONFIG 欄位
  *  supabase: true 時模擬後端（回報會記錄在 posted 陣列）
- *  overpassFails: true 時模擬 Overpass 掛掉
+ *  dataFails: true 時模擬地點資料完全拿不到
+ *  onlyFallback: true 時模擬「同網站沒有資料，只有已發佈網站有」（本機預覽、App 的情況）
  */
 export async function mockNetwork(page, options = {}) {
   const posted = [];
@@ -49,11 +51,16 @@ export async function mockNetwork(page, options = {}) {
     route.fulfill({ status: 404, body: "" });
   });
   await page.route("https://tile.openstreetmap.org/**", (r) => r.fulfill({ body: TILE, contentType: "image/png" }));
-  await page.route(/overpass/, (r) => {
-    if (options.overpassFails) return r.fulfill({ status: 504, body: "" });
-    const q = decodeURIComponent(r.request().postData() || "");
-    const elements = q.includes("hostel") ? CHEAP : FREE;
-    r.fulfill({ json: { elements } });
+  // 地點資料：用真正的建置程式（scripts/build-tiles.mjs）把測試資料切成格子檔，測試和正式環境走同一條路
+  const files = await tiles();
+  const fallbackHost = "iineoii.github.io";
+  await page.route("**/data/osm/**", (r) => {
+    const url = new URL(r.request().url());
+    const isFallback = url.host === fallbackHost;
+    if (options.dataFails || (options.onlyFallback && !isFallback)) return r.fulfill({ status: 404, body: "" });
+    const rel = url.pathname.split("/data/osm/")[1];
+    const data = files.get(rel);
+    data ? r.fulfill({ json: data }) : r.fulfill({ status: 404, body: "" });
   });
   await page.route("https://pagead2.googlesyndication.com/**", (r) => r.fulfill({ body: "", contentType: "application/javascript" }));
   await page.route("**/data/places.json", (r) => r.fulfill({ json: PLACES }));
@@ -69,6 +76,16 @@ export async function mockNetwork(page, options = {}) {
     await page.route("**/js/config.js", (r) => r.fulfill({ body: base + patch, contentType: "application/javascript" }));
   }
   return { posted, external };
+}
+
+/** 測試資料轉成 extract-osm.py 的輸出格式，再交給正式的建置程式 */
+let tilesCache;
+export async function tiles() {
+  if (!tilesCache) {
+    const els = [...FREE, ...CHEAP].map((e) => ({ type: e.type, id: e.id, lat: e.lat ?? e.center.lat, lon: e.lon ?? e.center.lon, tags: e.tags }));
+    tilesCache = await buildTiles(els, "2026-11-20T00:00:00Z");
+  }
+  return tilesCache;
 }
 
 /** 模擬 Capacitor 原生環境；呼叫紀錄在 window.__calls */

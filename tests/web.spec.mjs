@@ -136,8 +136,22 @@ test("網頁版：有設定贊助管道時顯示；成本未填時不顯示 0%",
   await expect(page.locator("#modalBody")).not.toContainText("0%");
 });
 
-test("地圖資料連不上時，告訴使用者發生什麼事", async ({ page }) => {
-  await mockNetwork(page, { overpassFails: true });
+test("地點資料拿不到時，告訴使用者發生什麼事", async ({ page }) => {
+  await mockNetwork(page, { dataFails: true });
   await page.goto("/index.html");
   await expect(page.locator("#toast")).toContainText("載入失敗");
+});
+
+test("同網站沒有資料時（本機預覽、App），改從已發佈的網站載入", async ({ page }) => {
+  await mockNetwork(page, { onlyFallback: true });
+  await openApp(page);
+  await expect.poll(() => app(page, "window.__app.state.places.free.size")).toBe(7);
+});
+
+test("關於頁顯示地點資料的日期", async ({ page }) => {
+  await mockNetwork(page);
+  await openApp(page);
+  await expect.poll(() => app(page, "!!window.__app.state.dataInfo")).toBe(true);
+  await page.evaluate(() => window.__app.openModal("about"));
+  await expect(page.locator("#modalBody")).toContainText("地點資料更新於 2026-11-20");
 });

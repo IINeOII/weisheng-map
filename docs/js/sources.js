@@ -1,12 +1,11 @@
 /**
  * 資料來源
- * 1. OpenStreetMap（Overpass API）— 即時查詢目前畫面範圍
+ * 1. OpenStreetMap 地點 — 每週預先整理好的靜態檔（docs/data/osm），依畫面所在的格子載入
+ *    不在使用者打開時即時查詢 Overpass：公共伺服器不穩定，且官方不建議一般 App 這樣用（CONSTRAINTS.md C12）
  * 2. 自有資料 — Supabase（有設定時）或 data/places.json：群眾回報、人工整理、贊助店家
  */
 (function () {
   const CFG = window.APP_CONFIG;
-  const GRID = 0.02; // 查詢範圍對齊的格子大小（度），讓相近的畫面可以共用快取
-
   const memCache = new Map();
 
   function storageGet(key) {
@@ -16,104 +15,92 @@
     try { localStorage.setItem(key, JSON.stringify(value)); } catch (e) { /* 空間滿或被停用就算了 */ }
   }
 
-  /** 把畫面範圍向外對齊到格子 */
-  function snapBounds(b) {
-    const f = (v) => Math.floor(v / GRID) * GRID;
-    const c = (v) => Math.ceil(v / GRID) * GRID;
-    return {
-      s: +f(b.getSouth()).toFixed(4), w: +f(b.getWest()).toFixed(4),
-      n: +c(b.getNorth()).toFixed(4), e: +c(b.getEast()).toFixed(4),
-    };
+  async function getJson(url) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 20000);
+    try {
+      const res = await fetch(url, { signal: ctrl.signal });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return await res.json();
+    } finally { clearTimeout(timer); }
   }
 
-  function buildQuery(layerId, bb) {
-    const bbox = `(${bb.s},${bb.w},${bb.n},${bb.e})`;
-    const parts = [];
-    for (const c of window.LAYERS[layerId].categories) {
-      for (const sel of c.overpass) parts.push(sel + bbox + ";");
+  // ── 資料索引：決定從哪個網址拿、資料是哪一天的、哪些格子有東西 ──
+  let indexPromise = null;
+  function loadIndex() {
+    if (!indexPromise) {
+      indexPromise = (async () => {
+        const bases = [CFG.dataUrl, CFG.dataFallbackUrl].filter(Boolean);
+        let lastErr;
+        for (const base of bases) {
+          try {
+            const index = await getJson(`${base}/index.json`);
+            storageSet("osm:index", { base, index });
+            return { base, index };
+          } catch (e) { lastErr = e; }
+        }
+        const saved = storageGet("osm:index"); // 離線：用上次存下的索引
+        if (saved) return { ...saved, offline: true };
+        indexPromise = null; // 下次再試
+        throw lastErr || new Error("找不到地點資料");
+      })();
     }
-    if (!parts.length) return null;
-    return `[out:json][timeout:25];(${parts.join("")});out center tags 2000;`;
+    return indexPromise;
   }
 
-  async function postOverpass(query) {
-    let lastErr;
-    for (const url of CFG.overpassEndpoints) {
-      try {
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 30000);
-        const res = await fetch(url, {
-          method: "POST",
-          body: "data=" + encodeURIComponent(query),
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          signal: ctrl.signal,
-        });
-        clearTimeout(timer);
-        if (!res.ok) throw new Error("HTTP " + res.status);
-        return await res.json();
-      } catch (e) {
-        lastErr = e;
-      }
-    }
-    throw lastErr || new Error("Overpass 無法連線");
+  /** 畫面範圍會碰到的格子 */
+  function cellsFor(bounds, cell) {
+    const keys = [];
+    for (let y = Math.floor(bounds.getSouth() / cell); y <= Math.floor(bounds.getNorth() / cell); y++)
+      for (let x = Math.floor(bounds.getWest() / cell); x <= Math.floor(bounds.getEast() / cell); x++) keys.push(`${y}_${x}`);
+    return keys;
   }
 
-  /** OSM 元素 → 統一的地點格式 */
-  function normalizeOsm(layerId, el) {
-    const t = el.tags || {};
-    const cat = window.classifyTags(layerId, t);
-    if (!cat) return null;
-    const lat = el.lat ?? el.center?.lat;
-    const lng = el.lon ?? el.center?.lon;
-    if (lat == null || lng == null) return null;
-    const addr = [t["addr:city"], t["addr:district"], t["addr:street"], t["addr:housenumber"]].filter(Boolean).join("");
+  /** 精簡格式 → App 用的地點物件 */
+  function expand(layerId, r) {
+    const type = { n: "node", w: "way", r: "relation" }[r.i[0]];
+    const id = r.i.slice(1);
     return {
-      id: `osm:${el.type}/${el.id}`,
-      source: "osm",
-      osmUrl: `https://www.openstreetmap.org/${el.type}/${el.id}`,
-      layer: layerId,
-      category: cat,
-      name: t["name:zh"] || t.name || t.brand || t.operator || "",
-      lat, lng,
-      address: addr || t["addr:full"] || "",
-      opening: t.opening_hours || "",
-      phone: t.phone || t["contact:phone"] || "",
-      website: t.website || t["contact:website"] || "",
-      fee: t.fee || "",
-      access: t.access || "",
-      description: t.description || "",
-      tags: t,
+      id: `osm:${type}/${id}`, source: "osm", osmUrl: `https://www.openstreetmap.org/${type}/${id}`,
+      layer: layerId, category: r.c, name: r.n || "", lat: r.a, lng: r.o,
+      address: r.d || "", opening: r.h || "", phone: r.p || "", website: r.w || "",
+      fee: r.f || "", description: r.s || "",
     };
   }
 
   /**
-   * 查詢某圖層在畫面範圍內的 OSM 地點
-   * 回傳 { places, fromCache }
+   * 載入某圖層在畫面範圍內的地點
+   * 回傳 { places, stale }；stale 代表目前離線、用的是之前存下的資料
    */
   async function fetchOsm(layerId, bounds) {
-    const bb = snapBounds(bounds);
-    const key = `osm:${layerId}:${bb.s},${bb.w},${bb.n},${bb.e}`;
-    if (memCache.has(key)) return { places: memCache.get(key), fromCache: true };
-    const stored = storageGet(key);
-    if (stored && Date.now() - stored.t < CFG.cacheTtlMs) {
-      memCache.set(key, stored.p);
-      return { places: stored.p, fromCache: true };
-    }
-    const q = buildQuery(layerId, bb);
-    if (!q) return { places: [], fromCache: true };
-    try {
-      const json = await postOverpass(q);
-      const places = (json.elements || []).map((el) => normalizeOsm(layerId, el)).filter(Boolean);
-      // 不存 tags 原文以節省空間
-      const slim = places.map(({ tags, ...rest }) => rest);
-      memCache.set(key, slim);
-      storageSet(key, { t: Date.now(), p: slim });
-      return { places: slim, fromCache: false };
-    } catch (e) {
-      // 連線失敗時退而使用過期快取（離線也能看到上次的資料）
-      if (stored) return { places: stored.p, fromCache: true, stale: true };
-      throw e;
-    }
+    const { base, index, offline } = await loadIndex();
+    const have = index.cells[layerId] || {};
+    const keys = cellsFor(bounds, index.cell).filter((k) => have[k]);
+    if (keys.length > 60) return { places: [], tooWide: true }; // 範圍太大，等使用者放大
+    const places = [];
+    let stale = !!offline;
+    await Promise.all(keys.map(async (k) => {
+      const ck = `osm:${index.generatedAt}:${layerId}:${k}`;
+      if (memCache.has(ck)) { places.push(...memCache.get(ck)); return; }
+      const saved = storageGet(ck);
+      if (saved && Date.now() - saved.t < CFG.cacheTtlMs) { memCache.set(ck, saved.p); places.push(...saved.p); return; }
+      try {
+        const list = (await getJson(`${base}/${layerId}/${k}.json`)).map((r) => expand(layerId, r));
+        memCache.set(ck, list);
+        storageSet(ck, { t: Date.now(), p: list });
+        places.push(...list);
+      } catch (e) {
+        if (saved) { stale = true; places.push(...saved.p); return; }
+        throw e;
+      }
+    }));
+    return { places, stale };
+  }
+
+  /** 資料是哪一天的（給「關於」頁顯示） */
+  async function dataInfo() {
+    try { const { index } = await loadIndex(); return { osmTimestamp: index.osmTimestamp, generatedAt: index.generatedAt }; }
+    catch (e) { return null; }
   }
 
   // ── 自有資料（群眾回報 / 贊助）──
@@ -187,5 +174,5 @@
     return chainInfo;
   }
 
-  window.Sources = { fetchOsm, fetchOwnPlaces, submitReport, fetchChainDiscounts, hasBackend, snapBounds };
+  window.Sources = { fetchOsm, fetchOwnPlaces, submitReport, fetchChainDiscounts, hasBackend, dataInfo };
 })();

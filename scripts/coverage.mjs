@@ -1,89 +1,92 @@
 #!/usr/bin/env node
 /**
- * 資料覆蓋率：查詢 OpenStreetMap 上「真的有多少」地點，回答最根本的問題：
- * 使用者打開地圖時，看得到東西嗎？
+ * 資料覆蓋率：使用者打開地圖時，看得到東西嗎？
+ * 數字來自 App 實際使用的同一份資料（scripts/build-tiles.mjs 產生），不是另外查詢，所以兩者一致。
  *
- * 用法：
- *   node scripts/coverage.mjs                  # 預設台北市（不需要先 npm install，Node 18 以上即可）
- *   node scripts/coverage.mjs 萬華             # 台北、新北、桃園、台中、台南、高雄、萬華、台北車站
- *   node scripts/coverage.mjs wanhua           # 也可以用英文：taipei、new-taipei、taoyuan、taichung、tainan、kaohsiung、wanhua、taipei-station
+ * 用法（只需要 Node.js 18 以上，不用 npm install）：
+ *   node scripts/coverage.mjs                 # 列出所有預設區域
+ *   node scripts/coverage.mjs 萬華             # 或 台北、新北、桃園、台中、台南、高雄、台北車站
+ *   node scripts/coverage.mjs wanhua          # 英文別名
  *   node scripts/coverage.mjs 25.03,121.49,25.06,121.52   # 自訂範圍（南,西,北,東）
+ *   node scripts/coverage.mjs 萬華 --dir 某資料夾           # 指定資料位置（測試用）
  *
- * 在 GitHub Actions 執行時，結果也會寫進該次執行的摘要頁（.github/workflows/coverage.yml）。
- *
- * 查詢條件直接讀 docs/js/categories.js，和 App 顯示的完全一致。
+ * 讀取順序：--dir 指定的資料夾 → 本機的 docs/data/osm → 已發佈的網站（config.js 的 dataFallbackUrl）
  */
 import fs from "node:fs";
 import { loadBrowserScripts, p } from "./lib.mjs";
+import { AREAS, ALIAS } from "./areas.mjs";
 
-const AREAS = {
-  台北: [24.96, 121.45, 25.21, 121.67],
-  新北: [24.67, 121.28, 25.30, 122.01],
-  桃園: [24.59, 120.98, 25.12, 121.48],
-  台中: [24.00, 120.46, 24.45, 121.45],
-  台南: [22.88, 120.03, 23.41, 120.66],
-  高雄: [22.47, 120.17, 23.47, 121.05],
-  萬華: [25.01, 121.48, 25.05, 121.51],
-  台北車站: [25.035, 121.505, 25.06, 121.53],
-};
+const W = loadBrowserScripts("docs/js/config.js", "docs/js/categories.js");
+const args = process.argv.slice(2);
+const dirAt = args.indexOf("--dir");
+const localDir = dirAt >= 0 ? args.splice(dirAt, 2)[1] : p("docs/data/osm");
 
-const ALIAS = { taipei: "台北", "new-taipei": "新北", taoyuan: "桃園", taichung: "台中", tainan: "台南", kaohsiung: "高雄", wanhua: "萬華", "taipei-station": "台北車站" };
-const raw = (process.argv[2] || "台北").trim();
-const arg = ALIAS[raw.toLowerCase()] || raw;
-const bbox = AREAS[arg] || arg.split(",").map(Number);
-if (bbox.length !== 4 || bbox.some(isNaN)) {
-  console.error("範圍格式錯誤。可用：" + Object.keys(AREAS).join("、") + "（或英文 " + Object.keys(ALIAS).join(", ") + "），或 南,西,北,東");
-  process.exit(1);
+async function load(rel) {
+  const f = `${localDir}/${rel}`;
+  if (fs.existsSync(f)) return JSON.parse(fs.readFileSync(f, "utf8"));
+  const url = `${W.APP_CONFIG.dataFallbackUrl}/${rel}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(30_000), headers: { "User-Agent": "WeishengMap-coverage/1.0" } });
+  if (!res.ok) throw new Error(`${url} → HTTP ${res.status}`);
+  return res.json();
 }
-const name = AREAS[arg] ? arg : "自訂範圍";
-const w = loadBrowserScripts("docs/js/config.js", "docs/js/categories.js");
-const endpoints = w.APP_CONFIG.overpassEndpoints;
 
-const rows = [];
-for (const layer of Object.values(w.LAYERS)) {
-  for (const c of layer.categories) {
-    if (!c.overpass.length) { rows.push({ layer: layer.label, cat: c.label, n: null }); continue; }
-    rows.push({ layer: layer.label, cat: c.label, q: `(${c.overpass.map((s) => s + ";").join("")});out count;` });
+const raw = (args[0] || "").trim();
+const arg = ALIAS[raw.toLowerCase()] || raw;
+let bbox = null;
+if (arg && !AREAS[arg]) {
+  bbox = arg.split(",").map(Number);
+  if (bbox.length !== 4 || bbox.some(isNaN)) {
+    console.error("範圍格式錯誤。可用：" + Object.keys(AREAS).join("、") + "（或英文 " + Object.keys(ALIAS).join(", ") + "），或 南,西,北,東");
+    process.exit(1);
   }
 }
-const query = `[out:json][timeout:120][bbox:${bbox.join(",")}];` + rows.filter((r) => r.q).map((r) => r.q).join("");
 
-let json, lastErr;
-for (const url of endpoints) {
-  try {
-    process.stdout.write(`查詢 ${new URL(url).host} …`);
-    const res = await fetch(url, {
-      method: "POST",
-      body: "data=" + encodeURIComponent(query),
-      headers: { "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "WeishengMap-coverage/1.0" },
-    });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    json = await res.json();
-    console.log(" 完成");
-    break;
-  } catch (e) { lastErr = e; console.log(" 失敗（" + e.message + "）"); }
+let cov, index;
+try {
+  cov = await load("coverage.json");
+  index = await load("index.json");
+} catch (e) {
+  console.error("讀不到地點資料：" + e.message);
+  console.error("網站還沒發佈過資料的話，請到 GitHub → Actions →「發佈網頁版」執行一次。");
+  process.exit(1);
 }
-if (!json) { console.error("所有 Overpass 伺服器都連不上：" + lastErr?.message); process.exit(1); }
 
-const counts = json.elements.filter((e) => e.type === "count").map((e) => +e.tags.total);
-let i = 0;
-for (const r of rows) if (r.q) r.n = counts[i++];
+// 自訂範圍：載入碰到的格子，逐筆計算
+async function countBbox([s, w, n, e]) {
+  const out = { free: {}, cheap: {} };
+  for (const layerId of ["free", "cheap"]) {
+    for (let y = Math.floor(s / index.cell); y <= Math.floor(n / index.cell); y++)
+      for (let x = Math.floor(w / index.cell); x <= Math.floor(e / index.cell); x++) {
+        const k = `${y}_${x}`;
+        if (!index.cells[layerId][k]) continue;
+        for (const r of await load(`${layerId}/${k}.json`))
+          if (r.a >= s && r.a <= n && r.o >= w && r.o <= e) out[layerId][r.c] = (out[layerId][r.c] || 0) + 1;
+      }
+  }
+  return out;
+}
 
-const km2 = Math.abs((bbox[2] - bbox[0]) * 111 * (bbox[3] - bbox[1]) * 111 * Math.cos((bbox[0] * Math.PI) / 180));
+const targets = bbox ? [["自訂範圍", bbox, await countBbox(bbox)]]
+  : (arg ? [arg] : Object.keys(AREAS)).map((a) => [a, AREAS[a], cov.counts[a]]);
+
 const verdict = (n) => n == null ? "只靠回報" : n === 0 ? "❌ 沒有資料" : n < 10 ? "⚠️  極少" : n < 50 ? "△ 偏少" : "✔";
-console.log(`\n${name}（約 ${Math.round(km2)} 平方公里）OpenStreetMap 資料量\n`);
-console.log("圖層      類別          數量   評估");
-console.log("─".repeat(44));
-for (const r of rows) console.log(`${r.layer.padEnd(6, "　")}${r.cat.padEnd(7, "　")}${String(r.n ?? "—").padStart(6)}   ${verdict(r.n)}`);
+const area = ([s, w, n, e]) => Math.round(Math.abs((n - s) * 111 * (e - w) * 111 * Math.cos((s * Math.PI) / 180)));
+const when = (cov.osmTimestamp || cov.generatedAt || "").slice(0, 10);
+const md = [`## OpenStreetMap 資料覆蓋率（資料日期 ${when}）`, ""];
 
-const report = { area: name, bbox, checkedAt: new Date().toISOString(), rows: rows.map(({ q, ...r }) => r) };
-fs.mkdirSync(p("reports"), { recursive: true });
-const out = p("reports", `coverage-${name}-${report.checkedAt.slice(0, 10)}.json`);
-fs.writeFileSync(out, JSON.stringify(report, null, 2));
-console.log(`\n已存到 ${out}`);
-if (process.env.GITHUB_STEP_SUMMARY) {
-  const md = [`### ${name}（約 ${Math.round(km2)} 平方公里）`, "", "| 圖層 | 類別 | 數量 | 評估 |", "|---|---|---:|---|",
-    ...rows.map((r) => `| ${r.layer} | ${r.cat} | ${r.n ?? "—"} | ${verdict(r.n)} |`), ""].join("\n");
-  fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md + "\n");
+for (const [name, box, counts] of targets) {
+  const rows = [];
+  for (const layer of Object.values(W.LAYERS))
+    for (const c of layer.categories) {
+      const fromOsm = c.id !== "sponsored" && c.id !== "meal";
+      rows.push({ layer: layer.label, cat: c.label, n: fromOsm ? counts[layer.id][c.id] || 0 : null });
+    }
+  console.log(`\n${name}（約 ${area(box)} 平方公里，資料日期 ${when}）\n`);
+  console.log("圖層      類別          數量   評估");
+  console.log("─".repeat(44));
+  for (const r of rows) console.log(`${r.layer.padEnd(6, "　")}${r.cat.padEnd(7, "　")}${String(r.n ?? "—").padStart(6)}   ${verdict(r.n)}`);
+  md.push(`### ${name}（約 ${area(box)} 平方公里）`, "", "| 圖層 | 類別 | 數量 | 評估 |", "|---|---|---:|---|",
+    ...rows.map((r) => `| ${r.layer} | ${r.cat} | ${r.n ?? "—"} | ${verdict(r.n)} |`), "");
 }
-console.log("「沒有資料」「極少」的類別，代表使用者打開會看到空地圖：先用 MapComplete 或和在地團體合作補資料，再加新功能。");
+console.log("\n「沒有資料」「極少」的類別，代表使用者打開會看到空地圖：先用 MapComplete 或和在地團體合作補資料，再加新功能。");
+if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md.join("\n") + "\n");

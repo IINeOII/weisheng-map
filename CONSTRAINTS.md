@@ -22,6 +22,8 @@
 | C8 | iOS 必須提供 `NSLocationWhenInUseUsageDescription`，否則一要求定位就閃退或被退件 | — | `Info.plist`；`check.mjs` 會檢查 | Apple 文件 | 2026-11-24 |
 | C9 | Claude 預覽頁（artifact）禁止連外部網站、遠端圖片、定位、Service Worker | 地圖 App 無法在 Claude 裡預覽 | 一律在本機或 GitHub Pages 測試 | artifact 頁面規範 | 2026-11-13 |
 | C11 | GitHub 免費帳號只有**公開**倉庫能用 GitHub Pages；私人倉庫要 GitHub Pro 或改用其他託管 | 倉庫維持私人就無法發佈網頁版 | `pages.yml` 註解；README 第 1 步 | docs.github.com「GitHub's plans」 | 2026-11-25 |
+| C12 | Overpass 公共伺服器嚴重超載，會封鎖大量使用的 IP；官方手冊說給一般大眾用的 App 不該以公共伺服器當後端，應改用資料檔 | 不能在使用者打開 App 時即時查 Overpass | 改為每週由 GitHub Actions 下載資料檔、預先建好靜態格子檔（`scripts/build-tiles.mjs`），App 只讀自家網站 | Overpass API 使用手冊；OSM 社群「Overpass API performance issues」討論串；2026-11-25 從 GitHub Actions 實測全部失敗 | 2026-11-25 |
+| C13 | Geofabrik 每日提供台灣資料檔（已移除個人資料），ODbL 授權；請使用者負責任地下載，不要重複下載同一個檔案 | 衍生的格子檔也必須以 ODbL 提供並註明出處 | `pages.yml` 以「週」為單位快取，一週最多下載一次；`build-tiles.mjs` 輸出 LICENSE.txt；App 有 OSM 出處 | download.geofabrik.de、Geofabrik 部落格「Download responsibly」 | 2026-11-25 |
 | C10 | 開發環境（Claude 的工作區）連不到 Overpass、OSM 圖磚、Android SDK | Claude 只能用假資料測試，真實資料與打包必須在你的電腦上跑 | `npm run coverage`、`npm run release:android` | 實測 | 2026-11-25 |
 
 ## 尚未查證、但未來功能會碰到的

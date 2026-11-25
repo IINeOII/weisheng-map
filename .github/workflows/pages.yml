@@ -1,10 +1,15 @@
-# 網頁版自動發佈：main 分支有更新時，先跑完整測試，全部通過才發佈 docs/ 到 GitHub Pages
-# 第一次使用：Settings → Pages → Source 選「GitHub Actions」
-# 注意：GitHub 免費帳號只有「公開」倉庫能用 Pages（見 CONSTRAINTS.md C11）
+# 網頁版發佈：測試 → 建置地點資料 → 發佈
+# - main 有更新時執行
+# - 每週一自動執行一次，下載最新的 OpenStreetMap 台灣資料
+# - 也可以手動執行：Actions → 發佈網頁版 → Run workflow
+# 每次執行的 Summary 頁會列出各區域的資料覆蓋率。
+# 注意：GitHub 免費帳號只有公開倉庫能用 Pages（CONSTRAINTS.md C11）
 name: 發佈網頁版
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: "17 1 * * 1" # 每週一台灣時間 09:17
   workflow_dispatch:
 
 permissions:
@@ -19,6 +24,7 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -26,17 +32,57 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: pip install osmium
       - run: npx playwright install --with-deps chromium
       - run: npm test
 
+  data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: week
+        run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+      # 同一週只向 Geofabrik 下載一次（他們請使用者「負責任地下載」）
+      - uses: actions/cache@v4
+        id: pbf
+        with:
+          path: build/taiwan.osm.pbf
+          key: osm-taiwan-${{ steps.week.outputs.week }}
+      - if: steps.pbf.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p build
+          curl -fL --retry 3 --retry-delay 20 -A "WeishengMap/1.0 (+https://github.com/IINeOII/weisheng-map)" \
+            -o build/taiwan.osm.pbf https://download.geofabrik.de/asia/taiwan-latest.osm.pbf
+          ls -lh build/taiwan.osm.pbf
+      - run: pip install osmium
+      - name: 抽取並建置地點資料
+        run: |
+          python scripts/extract-osm.py build/taiwan.osm.pbf build/candidates.ndjson
+          node scripts/build-tiles.mjs build/candidates.ndjson build/osm "$(cat build/candidates.ndjson.timestamp)"
+      - name: 資料覆蓋率
+        run: node scripts/coverage.mjs --dir build/osm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: osm-data
+          path: build/osm
+          retention-days: 14
+
   deploy:
-    needs: test
+    needs: [test, data]
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: osm-data
+          path: docs/data/osm
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
