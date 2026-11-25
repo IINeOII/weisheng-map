@@ -24,8 +24,10 @@
   --route-text: var(--jade);
 
   /* 字體 */
-  --font: "Chiron GoRound TC Variable", "Chiron GoRound TC", "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", system-ui, sans-serif;
-  --num: "Barlow Condensed", "Chiron GoRound TC Variable", system-ui, sans-serif;
+  /* 中文用手機內建字型：網頁中文字型首次載入要下載約 2.8 MB，在慢網路上會拖住底圖和地點資料（B9）。
+     數字仍用 Barlow Condensed（約 20 KB） */
+  --font: "PingFang TC", "Noto Sans TC", "Noto Sans CJK TC", "Microsoft JhengHei", system-ui, sans-serif;
+  --num: "Barlow Condensed", system-ui, sans-serif;
 
   /* 字級（以 16px 為基準，約 1.25 比例） */
   --t-xs: .8125rem;  /* 13 */

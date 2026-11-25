@@ -198,3 +198,13 @@ test("啟動時地點資料不等超商惜食時段資料：那份資料很慢�
   release();
   await expect.poll(() => app(page, "!!window.__app.state.chains")).toBe(true);
 });
+
+test("首次載入不下載中文網頁字型（約 2.8 MB，會拖住底圖和地點資料）[B9]", async ({ page }) => {
+  const fonts = [];
+  page.on("request", (r) => { if (/\.woff2?(\?|$)/.test(r.url())) fonts.push(r.url()); });
+  await mockNetwork(page);
+  await openApp(page);
+  await expect.poll(() => app(page, "window.__app.state.places.free.size")).toBe(7); // 先確認畫面真的載完（規則 13）
+  await page.evaluate(() => document.fonts.ready);
+  expect(fonts.filter((u) => !/barlow-condensed/.test(u))).toEqual([]);
+});
