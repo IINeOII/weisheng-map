@@ -196,4 +196,4 @@ npm run release:ios      # 正式版：全部測試和上架關卡都通過才�
 
 - 視覺系統、資料來源、Supabase 設定的說明都和網頁版相同，顏色與字級變數在 `docs/css/app.css` 最上方
 - 地圖資料 © OpenStreetMap 貢獻者，ODbL 授權
-- 字體：Chiron GoRound TC、Barlow Condensed（SIL OFL）；圖示：Lucide（ISC）
+- 字體：中文用手機內建字型（不下載，見 CLAUDE.md B9）；數字用 Barlow Condensed（SIL OFL）；圖示：Lucide（ISC）

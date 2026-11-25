@@ -77,6 +77,18 @@ const badRows = manual.filter((r) => {
 badRows.length ? fail(`sources/coords.csv 有 ${badRows.length} 筆地址空白、座標不在台灣或經緯度順序寫反：${badRows.map((r) => r["地址"]).join("、")}`)
   : ok(`sources/coords.csv ${manual.length} 筆人工座標格式正確`);
 
+// 字型預算：首頁連結的網頁字型加起來不能太大（B9：中文網頁字型 2.8 MB 拖慢整個首次載入）
+{
+  const FONT_BUDGET = 150 * 1024;
+  let total = 0;
+  for (const [, href] of read("docs/index.html").matchAll(/<link[^>]+href="(vendor\/fonts\/[^"]+\.css)"/g)) {
+    const dir = href.replace(/[^/]+$/, "");
+    for (const [, f] of read(`docs/${href}`).matchAll(/url\(\.?\/?([^)]+\.woff2?)\)/g)) total += fs.statSync(p(`docs/${dir}${f}`)).size;
+  }
+  total <= FONT_BUDGET ? ok(`首頁網頁字型共 ${Math.round(total / 1024)} KB（上限 ${FONT_BUDGET / 1024} KB）`)
+    : fail(`首頁網頁字型共 ${Math.round(total / 1024)} KB，超過 ${FONT_BUDGET / 1024} KB：中文請用手機內建字型（CLAUDE.md B9）`);
+}
+
 // 5. CSS 防呆
 section("CSS");
 /\[hidden\]\s*\{\s*display:\s*none\s*!important/.test(read("docs/css/app.css"))
