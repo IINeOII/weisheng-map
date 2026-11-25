@@ -1,0 +1,15 @@
+# 暫時用：量測已發佈網站的載入速度（合併前刪除或改成手動執行）
+name: 量測載入速度
+on:
+  push:
+    branches: [measure-load]
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/measure-load.mjs --runs 3
