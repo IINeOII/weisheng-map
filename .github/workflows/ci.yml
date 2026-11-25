@@ -23,3 +23,20 @@ jobs:
           name: 測試失敗的截圖
           path: test-results/
           retention-days: 7
+
+  # 使用者在 Windows 上開發：腳本的路徑、引號寫法要在 Windows 上也能跑（CLAUDE.md 規則 15）
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - name: 檢查腳本在 Windows 上能正確解析參數
+        shell: bash
+        run: |
+          node scripts/coverage.mjs 不存在的地方 && exit 1 || echo "錯誤參數正確地被拒絕"
+          node scripts/set-app-id.mjs Bad.Id && exit 1 || echo "錯誤套件 ID 正確地被拒絕"

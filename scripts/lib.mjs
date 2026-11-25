@@ -1,9 +1,10 @@
 // 檢查腳本共用的小工具：在 Node 裡載入網頁端的設定與類別定義（單一來源，不另外複製一份）
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 
-export const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export const p = (...a) => path.join(root, ...a);
 export const read = (f) => fs.readFileSync(p(f), "utf8");
 export const exists = (f) => fs.existsSync(p(f));
