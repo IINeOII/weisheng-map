@@ -1,0 +1,36 @@
+{
+  "name": "weisheng-map",
+  "version": "1.0.0",
+  "private": true,
+  "description": "維生地圖：免費資源與平價好物地圖（網頁＋Android＋iOS）",
+  "scripts": {
+    "serve": "http-server docs -p 8080 -c-1",
+    "check": "node scripts/check.mjs",
+    "test": "npm run check && playwright test",
+    "coverage": "node scripts/coverage.mjs",
+    "check:release": "npm run check && node scripts/release-check.mjs",
+    "sync": "npm run check && cap sync",
+    "android": "npm run sync && cap open android",
+    "ios": "npm run sync && cap open ios",
+    "release:android": "npm test && node scripts/release-check.mjs && cap sync android && cap open android",
+    "release:ios": "npm test && node scripts/release-check.mjs && cap sync ios && cap open ios",
+    "assets": "npx capacitor-assets generate --ios --android --iconBackgroundColor '#1B2A41' --iconBackgroundColorDark '#1B2A41' --splashBackgroundColor '#1B2A41' --splashBackgroundColorDark '#1B2A41'"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/app-launcher": "^8.0.1",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/geolocation": "^8.2.5",
+    "@capacitor/ios": "^8.6.2",
+    "@capacitor/network": "^8.0.1",
+    "@capacitor/share": "^8.0.3",
+    "@capacitor/splash-screen": "^8.0.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^4.0.0",
+    "@capacitor/cli": "^8.6.2",
+    "@playwright/test": "^1.65.1",
+    "http-server": "^14.1.1"
+  }
+}
