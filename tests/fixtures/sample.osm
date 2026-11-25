@@ -23,4 +23,9 @@
   <node id="24" version="1" lat="25.0455" lon="121.5155"><tag k="shop" v="convenience"/><tag k="name" v="路口雜貨店"/></node>
   <node id="25" version="1" lat="25.0456" lon="121.5156"><tag k="amenity" v="drinking_water"/><tag k="drinking_water" v="no"/></node>
   <node id="26" version="1" lat="25.0457" lon="121.5157"><tag k="highway" v="bus_stop"/></node>
+  <!-- 婦女庇護：地點需要保密，不能放上地圖 -->
+  <node id="27" version="1" lat="25.0458" lon="121.5158"><tag k="amenity" v="social_facility"/><tag k="social_facility" v="shelter"/><tag k="social_facility:for" v="abused"/></node>
+  <!-- 不是資源，但會進「地址與機構名稱對照表」，讓政府資料找得到座標 -->
+  <node id="30" version="1" lat="25.0120" lon="121.4630"><tag k="amenity" v="townhall"/><tag k="name" v="新北市板橋區公所"/></node>
+  <node id="31" version="1" lat="25.0470" lon="121.5170"><tag k="addr:street" v="延平南路"/><tag k="addr:housenumber" v="207號"/></node>
 </osm>

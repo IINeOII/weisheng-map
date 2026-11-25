@@ -2,8 +2,10 @@
  * 測試用的假資料與網路攔截
  * 刻意包含容易出錯的邊界情況：沒有名稱的地點、過期資料、贊助店家、分類不明的資料。
  */
+import { fileURLToPath } from "node:url";
 import fs from "node:fs";
 import { buildTiles } from "../../scripts/build-tiles.mjs";
+import { importGov } from "../../scripts/import-gov.mjs";
 
 export const CENTER = { latitude: 25.047, longitude: 121.517 };
 
@@ -42,6 +44,7 @@ const TILE = Buffer.from(
  *  supabase: true 時模擬後端（回報會記錄在 posted 陣列）
  *  dataFails: true 時模擬地點資料完全拿不到
  *  onlyFallback: true 時模擬「同網站沒有資料，只有已發佈網站有」（本機預覽、App 的情況）
+ *  gov: true 時加入政府開放資料的測試資料（tests/fixtures/gov）
  */
 export async function mockNetwork(page, options = {}) {
   const posted = [];
@@ -52,7 +55,7 @@ export async function mockNetwork(page, options = {}) {
   });
   await page.route("https://tile.openstreetmap.org/**", (r) => r.fulfill({ body: TILE, contentType: "image/png" }));
   // 地點資料：用真正的建置程式（scripts/build-tiles.mjs）把測試資料切成格子檔，測試和正式環境走同一條路
-  const files = await tiles();
+  const files = await tiles(!!options.gov);
   const fallbackHost = "iineoii.github.io";
   await page.route("**/data/osm/**", (r) => {
     const url = new URL(r.request().url());
@@ -79,13 +82,15 @@ export async function mockNetwork(page, options = {}) {
 }
 
 /** 測試資料轉成 extract-osm.py 的輸出格式，再交給正式的建置程式 */
-let tilesCache;
-export async function tiles() {
-  if (!tilesCache) {
+const tilesCache = new Map();
+export async function tiles(withGov = false) {
+  if (!tilesCache.has(withGov)) {
     const els = [...FREE, ...CHEAP].map((e) => ({ type: e.type, id: e.id, lat: e.lat ?? e.center.lat, lon: e.lon ?? e.center.lon, tags: e.tags }));
-    tilesCache = await buildTiles(els, "2026-11-20T00:00:00Z");
+    const dir = new URL("./gov/", import.meta.url);
+    const gov = withGov ? await importGov({ offline: fileURLToPath(dir), lookupFile: fileURLToPath(new URL("osm-lookup.ndjson", dir)), manualFile: fileURLToPath(new URL("coords.csv", dir)) }) : null;
+    tilesCache.set(withGov, await buildTiles(els, "2026-11-20T00:00:00Z", gov));
   }
-  return tilesCache;
+  return tilesCache.get(withGov);
 }
 
 /** 模擬 Capacitor 原生環境；呼叫紀錄在 window.__calls */

@@ -24,6 +24,10 @@
 | C11 | GitHub 免費帳號只有**公開**倉庫能用 GitHub Pages；私人倉庫要 GitHub Pro 或改用其他託管 | 倉庫維持私人就無法發佈網頁版 | `pages.yml` 註解；README 第 1 步 | docs.github.com「GitHub's plans」 | 2026-11-25 |
 | C12 | Overpass 公共伺服器嚴重超載，會封鎖大量使用的 IP；官方手冊說給一般大眾用的 App 不該以公共伺服器當後端，應改用資料檔 | 不能在使用者打開 App 時即時查 Overpass | 改為每週由 GitHub Actions 下載資料檔、預先建好靜態格子檔（`scripts/build-tiles.mjs`），App 只讀自家網站 | Overpass API 使用手冊；OSM 社群「Overpass API performance issues」討論串；2026-11-25 從 GitHub Actions 實測全部失敗 | 2026-11-25 |
 | C13 | Geofabrik 每日提供台灣資料檔（已移除個人資料），ODbL 授權；請使用者負責任地下載，不要重複下載同一個檔案 | 衍生的格子檔也必須以 ODbL 提供並註明出處 | `pages.yml` 以「週」為單位快取，一週最多下載一次；`build-tiles.mjs` 輸出 LICENSE.txt；App 有 OSM 出處 | download.geofabrik.de、Geofabrik 部落格「Download responsibly」 | 2026-11-25 |
+| C14 | 政府資料開放授權條款第 1 版：可免費、商業使用與再授權，但**必須標示出處**（提供機關、資料集名稱、授權條款）；與 CC BY 4.0 相容 | 每個政府資料地點都要能看到出處 | `build-tiles.mjs` 把出處寫進 `index.json` 的 `gov.sources`；地點詳細資料和「關於」頁都列出資料集連結；`LICENSE.txt` 說明；有測試 | data.gov.tw/license | 2026-11-25 |
+| C15 | Nominatim（OSM 地址查詢）使用規範：每秒最多 1 次、要自訂 User-Agent、要快取、不建議定期大量查詢；而且**實測台灣中文地址 7 筆全部查不到** | 不能用它把「只有地址」的政府資料轉成座標 | `import-gov.mjs` 改用：同地址的其他資料 → OSM 門牌與機構名稱（從每週資料檔抽出，不打 API）→ 人工座標 `sources/coords.csv`；都找不到就列「待補座標」，不猜位置 | operations.osmfoundation.org/policies/nominatim；2026-11-25 從 GitHub Actions 實測 | 2026-11-25 |
+| C16 | 部分縣市政府的開放資料網站從 GitHub Actions（國外機房）連不上：新竹市、新竹縣、屏東縣逾時或拒絕連線，雲林縣回 403；臺北、新北、桃園、臺中、嘉義市正常 | 這些縣市的資料目前無法自動匯入 | 只匯入連得上的資料集；下載失敗改用上次快取，Summary 會標示。若要納入，需在台灣的機器上下載後提交到倉庫，或請該縣市修正 | 2026-11-25 從 GitHub Actions 實測（`scripts/probe-gov.mjs`） | 2026-11-25 |
+| C17 | 家暴、性侵被害人庇護處所的地點需要保密（公開可能讓加害人找上門），政府資料裡偶爾混有「婦女中途之家」這類地點 | 不論來源，這類地點一律不放上地圖 | `categories.js` 的 `SENSITIVE_NAME`、`social_facility:for`（OSM 資料）；`gov-datasets.mjs` 的 `EXCLUDE` 共用同一條規則；有測試，並做過「拿掉規則測試就失敗」的反向驗證 | 家庭暴力防治法對庇護處所與被害人住居所的保密精神（非法律意見） | 2026-11-25 |
 | C10 | 開發環境（Claude 的工作區）連不到 Overpass、OSM 圖磚、Android SDK | Claude 只能用假資料測試，真實資料與打包必須在你的電腦上跑 | `npm run coverage`、`npm run release:android` | 實測 | 2026-11-25 |
 
 ## 尚未查證、但未來功能會碰到的
