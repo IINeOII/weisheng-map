@@ -1,0 +1,21 @@
+# 手動執行：量測已發佈網站與三種底圖在「慢速 4G＋中低階手機」下的速度，結果寫在 Summary 頁。
+# 注意：GitHub 的機器沒有顯示晶片，向量地圖（OpenFreeMap）會用軟體繪圖，量到的時間比真實手機慢很多。
+name: 量測載入速度
+on:
+  workflow_dispatch:
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: 已發佈的網站
+        run: node scripts/measure-load.mjs --runs 3
+      - name: 三種底圖
+        run: |
+          for m in osm ofm nlsc; do
+            node scripts/measure-load.mjs "https://iineoii.github.io/weisheng-map/lab/basemap.html?map=$m&z=17" --runs 3
+          done

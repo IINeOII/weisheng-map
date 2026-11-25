@@ -19,7 +19,8 @@
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 20000);
     try {
-      const res = await fetch(url, { signal: ctrl.signal });
+      // 地點資料比底圖重要：慢網路上請瀏覽器先下載它（不支援的瀏覽器會忽略這個設定）
+      const res = await fetch(url, { signal: ctrl.signal, priority: "high" });
       if (!res.ok) throw new Error("HTTP " + res.status);
       return await res.json();
     } finally { clearTimeout(timer); }

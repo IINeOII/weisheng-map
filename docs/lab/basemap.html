@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <title>底圖比較｜維生地圖</title>
+  <link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="../vendor/maplibre/maplibre-gl.css">
+  <style>
+    html, body { margin: 0; height: 100%; font-family: system-ui, "PingFang TC", "Noto Sans TC", sans-serif; background: #1B2A41; }
+    #map { position: absolute; inset: 0; }
+    .bar { position: absolute; z-index: 1000; left: 8px; right: 8px; top: calc(8px + env(safe-area-inset-top)); display: flex; gap: 6px; flex-wrap: wrap; }
+    .bar a, .bar button { flex: 1 1 auto; min-height: 44px; padding: 0 10px; border: 0; border-radius: 10px; background: #fff; color: #1B2A41; font: 600 15px/44px inherit; text-align: center; text-decoration: none; box-shadow: 0 1px 4px rgba(27,42,65,.25); }
+    .bar a[aria-current="page"] { background: #1B2A41; color: #fff; outline: 2px solid #fff; }
+    .info { position: absolute; z-index: 1000; left: 8px; bottom: calc(28px + env(safe-area-inset-bottom)); max-width: calc(100% - 16px); padding: 8px 12px; border-radius: 10px; background: rgba(255,255,255,.95); color: #1B2A41; font-size: 14px; line-height: 1.5; box-shadow: 0 1px 4px rgba(27,42,65,.25); }
+    .info strong { font-size: 15px; }
+  </style>
+</head>
+<body>
+  <div id="map" role="application" aria-label="地圖"></div>
+  <nav class="bar" aria-label="切換底圖">
+    <a data-map="osm" href="?map=osm">現在的地圖</a>
+    <a data-map="ofm" href="?map=ofm">OpenFreeMap</a>
+    <a data-map="nlsc" href="?map=nlsc">國土測繪中心</a>
+    <button id="locate" type="button">到我附近</button>
+  </nav>
+  <p class="info" id="info" aria-live="polite">正在載入底圖…</p>
+
+  <script src="../vendor/leaflet/leaflet.js"></script>
+  <script>
+  // 底圖比較頁：只用來讓擁有者在手機上比較清晰度和速度，不是正式功能。
+  // 每次切換都重新載入頁面，計時才不會被上一個底圖的快取影響太多。
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const id = ["osm", "ofm", "nlsc"].includes(params.get("map")) ? params.get("map") : "osm";
+    const lat = +params.get("lat") || 25.0478, lng = +params.get("lng") || 121.5170, zoom = +params.get("z") || 17;
+    document.querySelector(`[data-map="${id}"]`).setAttribute("aria-current", "page");
+    document.querySelectorAll(".bar a").forEach((a) => (a.href = `?map=${a.dataset.map}&lat=${lat}&lng=${lng}&z=${zoom}`));
+
+    const NAMES = { osm: "現在的地圖（OpenStreetMap 圖片圖磚）", ofm: "OpenFreeMap（向量地圖）", nlsc: "國土測繪中心 臺灣通用電子地圖" };
+    const info = document.getElementById("info");
+    const t0 = performance.now();
+    const map = L.map("map", { zoomControl: false }).setView([lat, lng], zoom);
+    window.__basemap = { id, ready: null, error: null };
+
+    function ready() {
+      if (window.__basemap.ready != null || window.__basemap.error) return;
+      const ms = Math.round(performance.now() - t0);
+      window.__basemap.ready = ms;
+      info.innerHTML = `<strong>${NAMES[id]}</strong><br>這個畫面載完花了 ${(ms / 1000).toFixed(1)} 秒（從打開頁面算起）`;
+    }
+    function failed(msg) {
+      window.__basemap.error = msg;
+      info.innerHTML = `<strong>${NAMES[id]}</strong><br>底圖載入失敗：${msg}。請確認網路後重新整理。`;
+    }
+
+    function addRaster(url, opts) {
+      const layer = L.tileLayer(url, { maxZoom: 19, ...opts }).addTo(map);
+      // Leaflet 在圖片「全部結束」時就觸發 load，下載失敗的也算：要自己數成功幾張
+      let ok = 0, errors = 0;
+      layer.on("tileload", () => ok++);
+      layer.on("tileerror", () => errors++);
+      layer.once("load", () => (errors > ok ? failed("大部分圖片下載不到") : ready()));
+    }
+
+    if (id === "osm") {
+      addRaster("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> 貢獻者' });
+    } else if (id === "nlsc") {
+      addRaster("https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}", {
+        maxNativeZoom: 18, attribution: '&copy; <a href="https://maps.nlsc.gov.tw/">內政部國土測繪中心</a>',
+      });
+    } else {
+      // 向量地圖：MapLibre 畫底圖，標記仍由 Leaflet 處理（正式版也會這樣接，現有的程式不用改）
+      const load = (src) => new Promise((ok, no) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+      load("../vendor/maplibre/maplibre-gl.js").then(() => load("../vendor/maplibre/leaflet-maplibre-gl.js")).then(() => {
+        const gl = L.maplibreGL({
+          style: "https://tiles.openfreemap.org/styles/liberty",
+          // 中文字用手機內建字型畫，不必下載字型檔
+          localIdeographFontFamily: "'PingFang TC', 'Noto Sans TC', 'Noto Sans CJK TC', 'Microsoft JhengHei', sans-serif",
+          attributionControl: false,
+        }).addTo(map);
+        map.attributionControl.addAttribution('<a href="https://openfreemap.org">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/">OpenMapTiles</a> 資料來自 <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>');
+        const m = gl.getMaplibreMap();
+        // 地名優先用繁體中文，沒有才用原本的名稱（避免顯示英文或簡體）
+        m.on("style.load", () => {
+          for (const layer of m.getStyle().layers) {
+            const tf = layer.type === "symbol" && m.getLayoutProperty(layer.id, "text-field");
+            // 只改顯示名稱的圖層；門牌號碼、道路編號等不動
+            if (tf && JSON.stringify(tf).includes("name")) {
+              m.setLayoutProperty(layer.id, "text-field", ["coalesce", ["get", "name:zh-Hant"], ["get", "name:zh"], ["get", "name"]]);
+            }
+          }
+        });
+        m.once("idle", ready);
+        m.on("error", (e) => { if (window.__basemap.ready == null) failed("向量地圖資料下載不到"); console.warn(e.error); });
+      }).catch(() => failed("地圖程式下載不到"));
+    }
+
+    document.getElementById("locate").onclick = () => {
+      if (!navigator.geolocation) { info.textContent = "這支手機的瀏覽器不支援定位"; return; }
+      info.textContent = "正在找你的位置…";
+      navigator.geolocation.getCurrentPosition(
+        (p) => { location.search = `?map=${id}&lat=${p.coords.latitude.toFixed(5)}&lng=${p.coords.longitude.toFixed(5)}&z=17`; },
+        () => { info.textContent = "沒有取得位置：請允許定位，或直接拖動地圖到你熟悉的地方"; },
+        { enableHighAccuracy: true, timeout: 12000 }
+      );
+    };
+  })();
+  </script>
+</body>
+</html>

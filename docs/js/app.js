@@ -658,14 +658,15 @@
   });
 
   // ── 啟動 ──
-  (async function init() {
-    state.chains = await window.Sources.fetchChainDiscounts();
+  (function init() {
+    // 地點資料一開始就載，不等超商惜食時段、也不等延遲：慢網路上標記才不會比底圖晚好幾秒出現（量測見 scripts/measure-load.mjs）
+    window.Sources.fetchChainDiscounts().then((c) => { state.chains = c; renderSheet(); });
     window.Sources.dataInfo().then((d) => (state.dataInfo = d));
     const h = location.hash.slice(1);
     map.addLayer(groups.free);
     setSheet("peek");
     if (LAYERS[h] && h !== "free") setLayer(h, true);
-    else { renderMarkers(); scheduleLoad(); if (["support", "partner", "about"].includes(h)) openModal(h); }
+    else { renderMarkers(); loadVisible(); if (["support", "partner", "about"].includes(h)) openModal(h); }
     loadOwn();
     window.Native.ready();
   })();
