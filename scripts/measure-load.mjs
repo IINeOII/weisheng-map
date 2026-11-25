@@ -78,6 +78,12 @@ async function once(browser, n) {
     byKind[k] ||= { n: 0, bytes: 0, ms: [] };
     byKind[k].n++; byKind[k].bytes += r.bytes; byKind[k].ms.push((r.end - r.start) * 1000);
   }
+  if (process.env.TIMELINE && n === 1) {
+    const base = Math.min(...[...reqs.values()].map((r) => r.start));
+    const rows = [...reqs.values()].sort((a, b) => a.start - b.start)
+      .map((r) => `${String(Math.round((r.start - base) * 1000)).padStart(6)} → ${String(r.end ? Math.round((r.end - base) * 1000) : "未完").padStart(6)} ms  ${kind(r.url, r.type)}  ${r.url.replace(/^https?:\/\/[^/]+/, "").slice(0, 70)}`);
+    console.log("請求時間軸（第 1 次）：\n" + rows.join("\n"));
+  }
   await ctx.close();
   console.log(`第 ${n} 次：`, JSON.stringify(marks));
   return { marks, byKind, info };

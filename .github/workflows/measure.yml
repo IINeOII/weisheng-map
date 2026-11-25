@@ -13,7 +13,7 @@ jobs:
       - run: npm ci
       - run: npx playwright install --with-deps chromium
       - name: 已發佈的網站
-        run: node scripts/measure-load.mjs --runs 3
+        run: TIMELINE=1 node scripts/measure-load.mjs --runs 1
       - name: 三種底圖
         run: |
           for m in osm ofm nlsc; do
