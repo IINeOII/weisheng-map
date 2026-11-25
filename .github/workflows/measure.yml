@@ -1,22 +1,31 @@
-# 暫時用：比較底圖服務（合併前刪除）
+# 暫時用：比較三種底圖的速度和清晰度（合併前刪除）
 name: 量測載入速度
 on:
   push:
     branches: [measure-load]
+    paths-ignore: [lab-shots/**]
+permissions:
+  contents: write
 jobs:
-  tiles:
+  basemaps:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      # GitHub Pages 會壓縮檔案；本機伺服器用預先壓縮的檔案模擬，下載量才接近真實
       - run: |
-          curl -sS -m 40 -A "WeishengMap/1.0" -o cap.xml -w "capabilities %{http_code} %{size_download} %{time_total}s\n" "https://wmts.nlsc.gov.tw/wmts" || true
-          grep -o '<ows:Title>[^<]*</ows:Title>[^<]*<ows:Identifier>EMAP[^<]*</ows:Identifier>' cap.xml | head -20 || true
-          grep -o 'template="https://wmts.nlsc.gov.tw/wmts/EMAP[^"]*"' cap.xml | head -5 || true
-          grep -A12 '<ows:Identifier>EMAP</ows:Identifier>' cap.xml | grep -E 'Format|TileMatrixSet>' | head -4 || true
-          # 台北車站附近，z16 與 z17
-          for zxy in 16/54850/28055 17/109700/56110; do
-            IFS=/ read z x y <<< "$zxy"
-            curl -sS -m 30 -A "WeishengMap/1.0" -o /dev/null -w "OSM  z$z %{http_code} %{content_type} %{size_download}B %{time_total}s\n" "https://tile.openstreetmap.org/$z/$x/$y.png" || true
-            for L in EMAP EMAP5 EMAP2 EMAP6; do
-              curl -sS -m 30 -A "WeishengMap/1.0" -o /dev/null -w "NLSC $L z$z %{http_code} %{content_type} %{size_download}B %{time_total}s\n" "https://wmts.nlsc.gov.tw/wmts/$L/default/GoogleMapsCompatible/$z/$y/$x" || true
-            done
+          find docs -name "*.js" -o -name "*.css" -o -name "*.json" | xargs gzip -k -9
+          npx http-server docs -p 4173 -g -s &
+          sleep 3
+      - run: |
+          mkdir -p lab-shots
+          for m in osm ofm nlsc; do
+            node scripts/measure-load.mjs "http://localhost:4173/lab/basemap.html?map=$m&z=17" --runs 3 --shot lab-shots/$m-z17.png
+            node scripts/measure-load.mjs "http://localhost:4173/lab/basemap.html?map=$m&z=15" --runs 1 --shot lab-shots/$m-z15.png
           done
+      - run: |
+          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
+          git add lab-shots && git commit -m "量測截圖" && git push

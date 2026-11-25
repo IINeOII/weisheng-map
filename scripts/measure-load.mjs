@@ -3,8 +3,9 @@
  * 量測網站在手機上的載入速度：模擬慢速 4G 與一般手機的 CPU，記錄各階段時間和下載量。
  * 要判斷「哪裡慢」時先量，不要猜（CLAUDE.md 規則 5 的精神）。
  *
- * 用法：node scripts/measure-load.mjs [網址] [--runs 3]
+ * 用法：node scripts/measure-load.mjs [網址] [--runs 3] [--shot 截圖.png]
  * 預設量已發佈的網站。結果印在畫面上；在 GitHub Actions 裡也會寫進 Summary 頁。
+ * 網址是底圖比較頁（docs/lab/basemap.html）時，量的是「底圖畫完」的時間。
  */
 import fs from "node:fs";
 import { chromium, devices } from "@playwright/test";
@@ -12,6 +13,8 @@ import { chromium, devices } from "@playwright/test";
 const args = process.argv.slice(2);
 const ri = args.indexOf("--runs");
 const runs = ri >= 0 ? +args.splice(ri, 2)[1] : 3;
+const si = args.indexOf("--shot");
+const shot = si >= 0 ? args.splice(si, 2)[1] : null;
 const url = args[0] || "https://iineoii.github.io/weisheng-map/";
 
 // Lighthouse 的「慢速 4G」設定，與 4 倍 CPU 減速（約等於中低階手機）
@@ -19,7 +22,8 @@ const NET = { offline: false, latency: 150, downloadThroughput: (1.6 * 1024 * 10
 const CPU = 4;
 
 const kind = (u, type) => {
-  if (/tile\.openstreetmap|\/\d+\/\d+\/\d+\.png/.test(u)) return "底圖圖磚";
+  if (/tile\.openstreetmap|wmts\.nlsc|\.pbf(\?|$)|\/\d+\/\d+\/\d+(\.png)?$/.test(u)) return "底圖圖磚";
+  if (/openfreemap/.test(u)) return "底圖樣式";
   if (/\/data\//.test(u)) return "地點資料";
   if (/fonts|woff2?/.test(u) || type === "font") return "字型";
   if (/\.js(\?|$)/.test(u)) return "程式";
@@ -45,7 +49,12 @@ async function once(browser, n) {
   const marks = {};
   const mark = (name, fn) => fn().then(() => { marks[name] = Date.now() - t0; }).catch(() => { marks[name] = null; });
   await page.goto(url, { waitUntil: "commit", timeout: 120_000 });
-  await Promise.all([
+  const lab = /lab\/basemap/.test(url);
+  if (lab) {
+    await mark("底圖畫完", () => page.waitForFunction(() => window.__basemap && (window.__basemap.ready != null || window.__basemap.error), null, { timeout: 120_000, polling: 200 }));
+    const err = await page.evaluate(() => window.__basemap.error);
+    if (err) marks["底圖畫完"] = null, console.log("底圖錯誤：", err);
+  } else await Promise.all([
     mark("畫面出現（標題可見）", () => page.waitForSelector("h1, .brand, #map", { timeout: 60_000 })),
     mark("第一張底圖", () => page.waitForSelector(".leaflet-tile-loaded", { timeout: 90_000 })),
     mark("畫面上的底圖全部載完", () => page.waitForFunction(() => {
@@ -54,11 +63,12 @@ async function once(browser, n) {
     mark("地點標記出現", () => page.waitForSelector(".leaflet-marker-icon", { timeout: 120_000 })),
   ]);
   await page.waitForTimeout(1500);
+  if (shot && n === 1) await page.screenshot({ path: shot });
   const info = await page.evaluate(() => ({
     markers: document.querySelectorAll(".leaflet-marker-icon").length,
     tiles: document.querySelectorAll(".leaflet-tile").length,
     dpr: devicePixelRatio,
-    places: window.__app ? window.__app.state.places.free.size : null,
+    places: window.__app ? window.__app.state.places.free.size : 0,
     fontsLoaded: [...document.fonts].filter((f) => f.status === "loaded").length,
   }));
   const byKind = {};
@@ -90,7 +100,7 @@ for (const k of kinds.sort((a, b) => (results[0].byKind[b]?.bytes || 0) - (resul
   lines.push(`| ${k} | ${median(ks.map((x) => x.n))} | ${kb(median(ks.map((x) => x.bytes)))} | ${Math.round(median(ks.flatMap((x) => x.ms)))} ms |`);
 }
 const i = results[0].info;
-lines.push("", `畫面上 ${i.tiles} 張底圖、${i.markers} 個標記（含群組）、已載入 ${i.places} 個免費資源地點、${i.fontsLoaded} 個字型檔；螢幕像素比 ${i.dpr}。`);
+if (!/lab\/basemap/.test(url)) lines.push("", `畫面上 ${i.tiles} 張底圖、${i.markers} 個標記（含群組）、已載入 ${i.places} 個免費資源地點、${i.fontsLoaded} 個字型檔；螢幕像素比 ${i.dpr}。`);
 const text = lines.join("\n") + "\n";
 console.log(text);
 if (process.env.GITHUB_STEP_SUMMARY) fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, text);
