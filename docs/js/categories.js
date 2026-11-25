@@ -12,6 +12,13 @@
   const closed = (t) => /^(private|no|customers|permit)$/.test(t.access || "");
   // 長照、安養等機構屬於社福設施，但不是一般人可以走進去求助的地方
   const CARE_HOME = /^(nursing_home|assisted_living|group_home|hospice)$/;
+  // 家暴、性侵、婦女庇護的地點需要保密，公開標示可能讓加害人找上門：不論資料來源，一律不放上地圖
+  // （政府開放資料的匯入程式 scripts/gov-datasets.mjs 也用這一條）
+  // 「庇護」不放進來：街友的緊急庇護也用這個詞，不能一起擋掉（測試 data.spec.mjs 的 w4）
+  const SENSITIVE_NAME = /婦女|家庭暴力|家暴|性侵|性暴力|受暴|保護服務|shelter for women|women'?s shelter/i;
+  const SENSITIVE_FOR = /abused|victim|women|woman|girl|domestic_violence/;
+  const sensitive = (t) => SENSITIVE_NAME.test([t.name, t["name:zh"], t.operator, t.description].filter(Boolean).join(" ")) || SENSITIVE_FOR.test(t["social_facility:for"] || "");
+  window.SENSITIVE_NAME = SENSITIVE_NAME;
 
   window.LAYERS = {
     free: {
@@ -19,7 +26,7 @@
       label: "免費資源",
       icon: "heart",
       ads: false, // 設計原則：免費資源圖層永遠無廣告
-      exclude: closed,
+      exclude: (t) => closed(t) || sensitive(t),
       categories: [
         {
           id: "food", label: "食物", icon: "soup", color: "#E4572E",

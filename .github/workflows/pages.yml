@@ -59,10 +59,18 @@ jobs:
             -o build/taiwan.osm.pbf https://download.geofabrik.de/asia/taiwan-latest.osm.pbf
           ls -lh build/taiwan.osm.pbf
       - run: pip install osmium
-      - name: 抽取並建置地點資料
-        run: |
-          python scripts/extract-osm.py build/taiwan.osm.pbf build/candidates.ndjson
-          node scripts/build-tiles.mjs build/candidates.ndjson build/osm "$(cat build/candidates.ndjson.timestamp)"
+      - name: 抽取 OSM 地點
+        run: python scripts/extract-osm.py build/taiwan.osm.pbf build/candidates.ndjson build/osm-lookup.ndjson
+      # 政府網站偶爾連不上：保留上次成功下載的檔案，失敗時改用（restore-keys 取最近一次）
+      - uses: actions/cache@v4
+        with:
+          path: build/gov-cache
+          key: gov-${{ github.run_id }}
+          restore-keys: gov-
+      - name: 匯入政府開放資料
+        run: node scripts/import-gov.mjs build/gov.json --osm build/osm-lookup.ndjson --cache build/gov-cache
+      - name: 建置格子檔
+        run: node scripts/build-tiles.mjs build/candidates.ndjson build/osm "$(cat build/candidates.ndjson.timestamp)" --gov build/gov.json
       - name: 資料覆蓋率
         run: node scripts/coverage.mjs --dir build/osm
       - uses: actions/upload-artifact@v4

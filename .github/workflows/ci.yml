@@ -25,7 +25,7 @@ jobs:
           path: test-results/
           retention-days: 7
 
-  # 使用者在 Windows 上開發：腳本的路徑、引號寫法要在 Windows 上也能跑（CLAUDE.md 規則 15）
+  # 使用者在 Windows 上開發：腳本的路徑、引號寫法要在 Windows 上也能跑（CLAUDE.md 規則 16）
   windows:
     runs-on: windows-latest
     steps:

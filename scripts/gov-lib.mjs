@@ -16,7 +16,9 @@ async function get(url) {
 
 /** data.gov.tw 資料集描述：名稱、機關、授權、資源清單。欄位名稱容錯處理，回傳 raw 方便除錯。 */
 export async function fetchDatasetMeta(id) {
-  const res = await get(`https://data.gov.tw/api/v2/rest/dataset/${id}`);
+  // GOV_API_BASE 只給測試用（模擬平臺連不上）
+  const base = process.env.GOV_API_BASE || "https://data.gov.tw/api/v2/rest/dataset";
+  const res = await get(`${base}/${id}`);
   const json = await res.json();
   const r = json.result || json;
   const dist = r.distribution || r.resources || [];
@@ -133,30 +135,6 @@ export function cleanAddress(addr) {
     .replace(/(\d+號)(之\d+)?.*$/, "$1$2")
     .replace(/\s+/g, "")
     .trim();
-}
-
-/**
- * Nominatim 地址轉座標。依使用規範：每秒最多 1 次、自訂 User-Agent、結果要快取。
- * 只在建置時呼叫，而且只查快取裡沒有的地址（scripts/import-gov.mjs）。
- * 回傳 { lat, lng, precision: "house" | "street" | "area" } 或 null。
- */
-let lastCall = 0;
-export async function geocode(address) {
-  const wait = lastCall + 1100 - Date.now();
-  if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-  lastCall = Date.now();
-  const url = "https://nominatim.openstreetmap.org/search?" + new URLSearchParams({
-    q: address, countrycodes: "tw", format: "jsonv2", limit: "1", "accept-language": "zh-TW",
-  });
-  const res = await get(url);
-  const [hit] = await res.json();
-  if (!hit) return null;
-  const lat = +hit.lat, lng = +hit.lon;
-  if (!inTaiwan(lat, lng)) return null;
-  const t = hit.addresstype || hit.type || "";
-  const precision = /house|building|amenity|office|shop|place_of_worship|townhall|social_facility/.test(t) || hit.category === "amenity" || hit.category === "building" ? "house"
-    : /road|street|residential|pedestrian|primary|secondary|tertiary|unclassified/.test(t) ? "street" : "area";
-  return { lat: +lat.toFixed(6), lng: +lng.toFixed(6), precision, matched: hit.display_name };
 }
 
 /** 台灣本島與離島的大致範圍，用來擋掉經緯度寫反、填 0 或格式錯的資料。 */

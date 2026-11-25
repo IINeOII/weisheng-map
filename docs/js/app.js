@@ -261,6 +261,9 @@
       fresh = age > 60 ? `<p class="note stale">${age} 天前確認過，可能已經變動，出發前最好先問一下</p>` : `<p class="note">${age === 0 ? "今天" : age + " 天前"}確認過</p>`;
     } else if (p.source === "osm") {
       fresh = `<p class="note">資料來自 OpenStreetMap 社群</p>`;
+    } else if (p.source === "gov") {
+      const names = (p.sources || []).map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)}</a>`).join("、");
+      fresh = `<p class="note" data-source="gov">資料來自政府開放資料${names ? `：${names}` : ""}。內容以機關公告為準，出發前最好先打電話確認。</p>`;
     }
 
     const ch = chainFor(p);
@@ -492,6 +495,14 @@
       <div class="stack">${contact || '<p class="note">合作窗口還在準備中。</p>'}</div>`;
   }
 
+  // 政府資料開放授權條款要求標示出處：列出實際用到的資料集
+  function govSourcesItem() {
+    const list = Object.values(state.dataInfo?.gov?.sources || {});
+    if (!list.length) return "";
+    const links = list.map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)}</a>`).join("、");
+    return `<li data-source="gov">食物銀行、愛心餐食、街友盥洗與中途之家：政府開放資料（${links}），依<a href="https://data.gov.tw/license" target="_blank" rel="noopener">政府資料開放授權條款第 1 版</a>使用</li>`;
+  }
+
   function aboutView() {
     return `<h2 id="modalTitle">關於維生地圖</h2>
       <p class="lede">幫手頭緊的人找到附近的免費食物、飲水、充電、盥洗、住所和就業資源，也幫每個想省錢的人找到划算的餐食和住宿。</p>
@@ -499,6 +510,7 @@
       <ul><li>上方切換「免費資源」和「平價好物」兩張地圖</li><li>點類別可以開關，長按只看那一類</li><li>按定位鈕，下方會顯示離你最近的地點和走路時間</li></ul>
       <h3>資料從哪裡來</h3>
       <ul><li>地圖和大部分地點：<a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> 貢獻者（ODbL 授權）</li>
+      ${govSourcesItem()}
       <li>平價餐點、待用餐、贊助店家：使用者回報，經人工確認</li>
       <li>超商惜食時段：各品牌公開資訊，${esc(state.chains?.lastChecked || "")} 確認</li></ul>
       ${state.dataInfo?.osmTimestamp ? `<p class="note">地點資料更新於 ${esc(state.dataInfo.osmTimestamp.slice(0, 10))}，每週更新一次。</p>` : ""}

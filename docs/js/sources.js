@@ -56,8 +56,16 @@
     return keys;
   }
 
-  /** 精簡格式 → App 用的地點物件 */
-  function expand(layerId, r) {
+  /** 精簡格式 → App 用的地點物件；編號 g 開頭的是政府開放資料 */
+  function expand(layerId, r, index) {
+    if (r.i[0] === "g") {
+      const srcs = (r.g || []).map((id) => index && index.gov && index.gov.sources[id]).filter(Boolean);
+      return {
+        id: `gov:${r.i.slice(1)}`, source: "gov", sources: srcs,
+        layer: layerId, category: r.c, name: r.n || "", lat: r.a, lng: r.o,
+        address: r.d || "", opening: r.h || "", phone: r.p || "", conditions: r.e || "", website: "", fee: "", description: "",
+      };
+    }
     const type = { n: "node", w: "way", r: "relation" }[r.i[0]];
     const id = r.i.slice(1);
     return {
@@ -85,7 +93,7 @@
       const saved = storageGet(ck);
       if (saved && Date.now() - saved.t < CFG.cacheTtlMs) { memCache.set(ck, saved.p); places.push(...saved.p); return; }
       try {
-        const list = (await getJson(`${base}/${layerId}/${k}.json`)).map((r) => expand(layerId, r));
+        const list = (await getJson(`${base}/${layerId}/${k}.json`)).map((r) => expand(layerId, r, index));
         memCache.set(ck, list);
         storageSet(ck, { t: Date.now(), p: list });
         places.push(...list);
@@ -99,7 +107,7 @@
 
   /** 資料是哪一天的（給「關於」頁顯示） */
   async function dataInfo() {
-    try { const { index } = await loadIndex(); return { osmTimestamp: index.osmTimestamp, generatedAt: index.generatedAt }; }
+    try { const { index } = await loadIndex(); return { osmTimestamp: index.osmTimestamp, generatedAt: index.generatedAt, gov: index.gov || null }; }
     catch (e) { return null; }
   }
 

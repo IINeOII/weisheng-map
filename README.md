@@ -57,11 +57,25 @@ node scripts/set-app-id.mjs org.yourname.weisheng
 使用者打開地圖時，**不會**即時去查第三方伺服器。資料流程是這樣：
 
 1. GitHub Actions 每週一從 Geofabrik 下載 OpenStreetMap 的台灣資料檔
-2. `scripts/extract-osm.py` 挑出可能有用的地點
-3. `scripts/build-tiles.mjs` 用 `docs/js/categories.js` 分類，切成 0.1 度見方的小檔案
-4. 這些檔案跟網站一起發佈到 `…/data/osm/`；App 只載入畫面需要的格子
+2. `scripts/extract-osm.py` 挑出可能有用的地點，另外輸出一份「門牌與機構名稱」對照表
+3. `scripts/import-gov.mjs` 下載政府開放資料（食物銀行、愛心餐食、街友盥洗與中途之家），補上座標
+4. `scripts/build-tiles.mjs` 用 `docs/js/categories.js` 分類，和政府資料一起切成 0.1 度見方的小檔案
+5. 這些檔案跟網站一起發佈到 `…/data/osm/`；App 只載入畫面需要的格子
 
 想改分類規則，只要改 `categories.js`，下次發佈就會生效。地點資料不放進 git，每次發佈時重新建置。
+
+### 政府開放資料
+
+目前匯入的資料集和對應方式在 `scripts/gov-datasets.mjs`。每次發佈後，GitHub Actions 的 Summary 頁有「政府開放資料匯入」表格：每個資料集下載成功沒有、放上地圖幾筆、哪些依規則排除、哪些**待補座標**。
+
+很多政府資料只有地址沒有座標。程式會先找同地址的其他資料、OpenStreetMap 的門牌和機構名稱；都找不到的不會亂放位置，而是列在「待補座標」。補的方法：
+
+1. 在 Summary 頁點該地點的「Google 地圖」連結，確認位置
+2. 在地圖上對那個點按右鍵，第一行就是「緯度, 經度」，點一下會複製
+3. 打開 `sources/coords.csv`，加一行：`地址,緯度,經度,備註`（地址照 Summary 表格裡的寫法）
+4. 提交後下次發佈就會出現；`npm run check` 會擋下經緯度寫反或不在台灣的座標
+
+家暴與婦女庇護處所、只服務特定個案的據點不會放上地圖（`CONSTRAINTS.md` C17）。要新增資料集，先執行 `node scripts/probe-gov.mjs 資料集編號` 看真實欄位（要在 GitHub Actions 這類連得到的網路上跑，見 C16）。
 
 ## 在加任何功能之前：先看真實資料夠不夠
 

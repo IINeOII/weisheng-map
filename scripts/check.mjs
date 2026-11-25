@@ -7,6 +7,8 @@
 import vm from "node:vm";
 import fs from "node:fs";
 import { read, exists, p, loadBrowserScripts, ok, fail, warn, section, finish } from "./lib.mjs";
+import { parseCsv, pickCoords } from "./gov-lib.mjs";
+import { DATASETS } from "./gov-datasets.mjs";
 
 // 1. JavaScript 語法
 section("JavaScript 語法");
@@ -60,6 +62,20 @@ if (places.length) ok(`places.json ${places.length} 筆已檢查`);
 const chains = JSON.parse(read("docs/data/chain-discounts.json"));
 const age = Math.floor((Date.now() - new Date(chains.lastChecked)) / 86400000);
 age > 120 ? warn(`超商惜食時段已經 ${age} 天沒確認，請重新查證後更新 lastChecked`) : ok(`超商惜食時段 ${age} 天前確認`);
+
+// 政府資料：資料集編號不重複、每個都有測試檔；人工座標要在台灣範圍內（填錯經緯度順序也會擋下）
+const ids = DATASETS.map((d) => d.id);
+new Set(ids).size === ids.length ? ok(`政府資料集 ${ids.length} 個，編號不重複`) : fail("gov-datasets.mjs 有重複的資料集編號");
+const noFixture = ids.filter((id) => !["csv", "json"].some((x) => exists(`tests/fixtures/gov/${id}.${x}`)));
+// 測試檔不是每個都必須有，但沒有的要知道
+if (noFixture.length) warn(`這些政府資料集沒有測試檔（tests/fixtures/gov）：${noFixture.join("、")}`);
+const manual = parseCsv(read("sources/coords.csv"));
+const badRows = manual.filter((r) => {
+  const c = pickCoords({ 緯度: r["緯度"], 經度: r["經度"] });
+  return !r["地址"] || !c || c[0] !== +r["緯度"];
+});
+badRows.length ? fail(`sources/coords.csv 有 ${badRows.length} 筆地址空白、座標不在台灣或經緯度順序寫反：${badRows.map((r) => r["地址"]).join("、")}`)
+  : ok(`sources/coords.csv ${manual.length} 筆人工座標格式正確`);
 
 // 5. CSS 防呆
 section("CSS");

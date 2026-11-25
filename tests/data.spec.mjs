@@ -36,6 +36,9 @@ test.describe("資料管線", () => {
       el(12, { tourism: "hostel" }),
       el(13, { amenity: "bench" }),
       el(14, { cafe: "yes", "drinking_water:refill": "yes" }),
+      // 婦女與家暴庇護：地點需要保密
+      el(15, { amenity: "social_facility", social_facility: "shelter", "social_facility:for": "abused" }),
+      el(16, { amenity: "social_facility", social_facility: "shelter", name: "測試婦女中途之家" }),
     ]);
     expect(got).toEqual({
       n1: "free:water", n3: "free:hygiene", n6: "free:food", n8: "free:social", n14: "free:water",
@@ -56,7 +59,11 @@ test.describe("資料管線", () => {
     try { execFileSync("python3", ["-c", "import osmium"]); } catch { hasOsmium = false; }
     test.skip(!hasOsmium && !process.env.CI, "本機沒有安裝 pyosmium");
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wsm-"));
-    execFileSync("python3", ["scripts/extract-osm.py", "tests/fixtures/sample.osm", path.join(dir, "c.ndjson")]);
+    execFileSync("python3", ["scripts/extract-osm.py", "tests/fixtures/sample.osm", path.join(dir, "c.ndjson"), path.join(dir, "lookup.ndjson")]);
+    const lookup = fs.readFileSync(path.join(dir, "lookup.ndjson"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    expect(lookup.find((e) => e.id === 30)).toMatchObject({ name: "新北市板橋區公所", lat: 25.012 });
+    expect(lookup.find((e) => e.id === 31)).toMatchObject({ addr: "延平南路207號" });
+    expect(lookup.some((e) => e.id === 26)).toBe(false); // 公車站沒有名稱也沒有門牌
     execFileSync("node", ["scripts/build-tiles.mjs", path.join(dir, "c.ndjson"), path.join(dir, "out")]);
     const free = JSON.parse(fs.readFileSync(path.join(dir, "out/free", cellKey(25.048, 121.516) + ".json"), "utf8"));
     expect(free.map((r) => r.i).sort()).toEqual(["n1", "n2", "n3", "n5", "w4"]);

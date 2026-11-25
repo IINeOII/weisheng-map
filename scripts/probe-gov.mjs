@@ -2,17 +2,9 @@
 // 新增資料集之前先跑一次，確認欄位和座標格式，再寫對應規則（CLAUDE.md 規則 1、R7）。
 //
 // 用法：node scripts/probe-gov.mjs 121332 125392
-import { fetchDatasetMeta, download, decode, parseTable, cleanAddress, geocode } from "./gov-lib.mjs";
+import { fetchDatasetMeta, download, decode, parseTable } from "./gov-lib.mjs";
 
 const args = process.argv.slice(2);
-// 地址轉座標測試：node scripts/probe-gov.mjs --geocode "臺北市中正區延平南路207號"
-if (args[0] === "--geocode") {
-  for (const a of args.slice(1)) {
-    const q = cleanAddress(a);
-    try { console.log(q, "→", JSON.stringify(await geocode(q))); } catch (e) { console.log(q, "→ 失敗：", e.message, e.cause?.code || ""); }
-  }
-  process.exit(0);
-}
 const ids = args;
 if (!ids.length) {
   console.error("請提供 data.gov.tw 的資料集編號，例如：node scripts/probe-gov.mjs 121332");

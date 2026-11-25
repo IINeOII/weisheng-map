@@ -155,3 +155,33 @@ test("關於頁顯示地點資料的日期", async ({ page }) => {
   await page.evaluate(() => window.__app.openModal("about"));
   await expect(page.locator("#modalBody")).toContainText("地點資料更新於 2026-11-20");
 });
+
+test("政府開放資料的地點：顯示取用條件、時間和出處；關於頁列出資料集", async ({ page }) => {
+  await mockNetwork(page, { gov: true });
+  await openApp(page);
+  const id = "gov:121332-0";
+  await expect.poll(() => app(page, `window.__app.state.places.free.has("${id}")`)).toBe(true);
+  await page.evaluate((id) => window.__app.showDetail(window.__app.state.places.free.get(id)), id);
+  const d = page.locator("#detail");
+  await expect(d.getByRole("heading", { name: "臺北市中正社會福利服務中心" })).toBeVisible();
+  await expect(d).toContainText("實物銀行：通常要先經社工評估");
+  await expect(d).toContainText("愛心餐食補給站");
+  const note = d.locator('[data-source="gov"]');
+  await expect(note.getByRole("link", { name: "臺北市愛心餐食補給站" })).toHaveAttribute("href", "https://data.gov.tw/dataset/121332");
+  await expect(note.getByRole("link", { name: "臺北市政府實物銀行" })).toBeVisible();
+  await expect(d.getByRole("link", { name: /修正資料/ })).toHaveCount(0); // 不是 OSM 的資料，不能叫人去 OSM 改
+
+  await page.evaluate(() => window.__app.openModal("about"));
+  const about = page.locator('#modalBody [data-source="gov"]');
+  await expect(about).toContainText("政府資料開放授權條款");
+  await expect(about.getByRole("link", { name: "臺北市街友中途之家暨盥洗服務據點" })).toBeVisible();
+});
+
+test("沒有政府資料時，關於頁不顯示空的政府資料來源", async ({ page }) => {
+  await mockNetwork(page);
+  await openApp(page);
+  await expect.poll(() => app(page, "!!window.__app.state.dataInfo")).toBe(true);
+  await page.evaluate(() => window.__app.openModal("about"));
+  await expect(page.locator("#modalBody")).toContainText("OpenStreetMap");
+  await expect(page.locator('#modalBody [data-source="gov"]')).toHaveCount(0);
+});
