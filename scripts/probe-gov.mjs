@@ -33,7 +33,7 @@ for (const id of ids) {
     console.log(`下載 ${pick.url}：${buf.length} bytes，編碼 ${encoding}`);
     const rows = parseTable(text, pick.format);
     console.log(`共 ${rows.length} 筆；欄位：${Object.keys(rows[0] || {}).join(" | ")}`);
-    for (const row of rows.slice(0, 3)) console.log(JSON.stringify(row));
+    for (const row of rows.slice(0, process.env.PROBE_ALL ? 1e9 : 3)) console.log(JSON.stringify(row));
   } catch (e) {
     console.log("失敗：", e.message, e.cause?.code || e.cause?.message || "");
   }
