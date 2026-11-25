@@ -185,3 +185,16 @@ test("沒有政府資料時，關於頁不顯示空的政府資料來源", async
   await expect(page.locator("#modalBody")).toContainText("OpenStreetMap");
   await expect(page.locator('#modalBody [data-source="gov"]')).toHaveCount(0);
 });
+
+test("啟動時地點資料不等超商惜食時段資料：那份資料很慢，地點照樣先出來 [B8]", async ({ page }) => {
+  await mockNetwork(page);
+  let release;
+  const held = new Promise((r) => (release = r));
+  await page.route("**/data/chain-discounts.json", async (route) => { await held; await route.continue(); });
+  await openApp(page);
+  // 惜食時段資料還卡著，免費資源的地點已經載入
+  await expect.poll(() => app(page, "window.__app.state.places.free.size"), { timeout: 4000 }).toBe(7);
+  expect(await app(page, "window.__app.state.chains")).toBeNull();
+  release();
+  await expect.poll(() => app(page, "!!window.__app.state.chains")).toBe(true);
+});

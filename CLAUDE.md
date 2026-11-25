@@ -42,6 +42,7 @@
 | `npm run check` | 靜態檢查（幾秒）：語法、圖示、離線快取清單、資料格式、原生設定一致 |
 | `npm test` | 靜態檢查加上瀏覽器測試（網頁版與模擬 App 模式） |
 | `node scripts/probe-gov.mjs 121332` | 新增政府資料集前，看真實的下載網址、編碼、欄位（要在連得到的網路上跑，例如 GitHub Actions） |
+| `node scripts/measure-load.mjs` | 用「慢速 4G＋中低階手機」量已發佈網站的速度；GitHub Actions 也可以手動執行「量測載入速度」 |
 | `node scripts/coverage.mjs 萬華` | 查真實資料量（不需要 npm install，讀已發佈網站的資料）；每次發佈時 GitHub 也會把全部區域的結果寫在 Summary 頁 |
 | `npm run check:release` | 上架關卡：沒填的金鑰、信箱、底圖都會擋下 |
 | `npm run release:android`／`release:ios` | 通過所有檢查後才開啟 Android Studio／Xcode |
@@ -61,6 +62,7 @@
 | B5 | 圖示後面的文字全部消失 | 產生程式碼沒驗證輸出（抽到巢狀的 `<svg>`） | `check.mjs` 檢查巢狀 `<svg>` 與缺少的圖示 |
 | B6 | 浮動按鈕被下方面板蓋住 | 寫死高度，沒有量測 | ResizeObserver；有測試 |
 | B7 | 贊助店家重複出現、沒有名稱的地點重複顯示類別、給使用者看 JSON、營運進度顯示 0% | 空狀態和邊界狀態沒設計 | 規則 7；測試資料刻意包含這些邊界情況 |
+| B8 | 慢網路上地點標記比底圖還晚出現 | 啟動時先等「超商惜食時段」資料、再延遲 0.45 秒才載地點 | 地點資料一開始就載、優先下載；有測試；`scripts/measure-load.mjs` 量測 |
 | R1 | 第一版視覺被說難看，整個重做 | 為了快，跳過設計步驟 | 視覺系統寫在 README 和 `app.css` 的變數 |
 | R2 | 贊助、AdSense、OSM 圖磚到 App 階段才發現不能用；Claude 預覽頁載不到地圖 | 外部限制在寫完之後才查 | `CONSTRAINTS.md`；`release-check.mjs`；規則 1 |
 | R3 | `sw.js` 清單改了 3 次、README 改寫 3 次、測試因為 class 改名壞了 2 次、換套件 ID 要重建專案 | 同一件事寫在好幾個地方 | `check.mjs` 交叉比對；`set-app-id.mjs`；規則 4、12 |

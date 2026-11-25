@@ -28,6 +28,9 @@
 | C15 | Nominatim（OSM 地址查詢）使用規範：每秒最多 1 次、要自訂 User-Agent、要快取、不建議定期大量查詢；而且**實測台灣中文地址 7 筆全部查不到** | 不能用它把「只有地址」的政府資料轉成座標 | `import-gov.mjs` 改用：同地址的其他資料 → OSM 門牌與機構名稱（從每週資料檔抽出，不打 API）→ 人工座標 `sources/coords.csv`；都找不到就列「待補座標」，不猜位置 | operations.osmfoundation.org/policies/nominatim；2026-11-25 從 GitHub Actions 實測 | 2026-11-25 |
 | C16 | 部分縣市政府的開放資料網站從 GitHub Actions（國外機房）連不上：新竹市、新竹縣、屏東縣逾時或拒絕連線，雲林縣回 403；臺北、新北、桃園、臺中、嘉義市正常 | 這些縣市的資料目前無法自動匯入 | 只匯入連得上的資料集；下載失敗改用上次快取，Summary 會標示。若要納入，需在台灣的機器上下載後提交到倉庫，或請該縣市修正 | 2026-11-25 從 GitHub Actions 實測（`scripts/probe-gov.mjs`） | 2026-11-25 |
 | C17 | 家暴、性侵被害人庇護處所的地點需要保密（公開可能讓加害人找上門），政府資料裡偶爾混有「婦女中途之家」這類地點 | 不論來源，這類地點一律不放上地圖 | `categories.js` 的 `SENSITIVE_NAME`、`social_facility:for`（OSM 資料）；`gov-datasets.mjs` 的 `EXCLUDE` 共用同一條規則；有測試，並做過「拿掉規則測試就失敗」的反向驗證 | 家庭暴力防治法對庇護處所與被害人住居所的保密精神（非法律意見） | 2026-11-25 |
+| C18 | Google 地圖：網頁（含 App 裡的網頁地圖）每月前 10,000 次載入免費，之後每 1,000 次 7 美元，須綁信用卡；原生 Maps SDK 不限次數免費，但要改用原生地圖外掛、標記另寫一套；Google 查到的座標最多存 30 天且只能配 Google 地圖使用 | 不適合當主要底圖（費用沒有上限、要大改寫），也不能用來補我們公開資料的座標 | 目前不採用；比較見 `docs/lab/basemap.html` | developers.google.com/maps/billing-and-pricing/pricing；Maps Service Specific Terms | 2026-11-26 |
+| C19 | 國土測繪中心「臺灣通用電子地圖」WMTS：政府資料開放授權條款第 1 版、免費、不用金鑰，要標示「© 內政部國土測繪中心」；圖片圖磚（256 像素），伺服器在台灣；圖上有淡淡的版本浮水印 | 可以當 App 的底圖，不必另找有金鑰的服務（C4）；但在高解析度手機上一樣不夠銳利 | `docs/lab/basemap.html`；大量使用有沒有上限還沒查到，正式採用前要問國土測繪中心 | data.gov.tw/dataset/17214；2026-11-26 從 GitHub 實測可連線 | 2026-11-26 |
+| C20 | OpenFreeMap：向量地圖，免費、不限次數、不用註冊、可商業使用，要標示出處；服務「照現狀提供」，可能變更或停止。向量地圖要下載約 300 KB（壓縮後）的 MapLibre 程式，而且很吃手機效能 | 字最清楚，但舊手機可能卡；要先在真手機上試 | `docs/lab/basemap.html`；MapLibre 放在 `docs/vendor/maplibre` | openfreemap.org | 2026-11-26 |
 | C10 | 開發環境（Claude 的工作區）連不到 Overpass、OSM 圖磚、Android SDK | Claude 只能用假資料測試，真實資料與打包必須在你的電腦上跑 | `npm run coverage`、`npm run release:android` | 實測 | 2026-11-25 |
 
 ## 尚未查證、但未來功能會碰到的

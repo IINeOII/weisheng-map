@@ -1,13 +1,10 @@
-# 暫時用：比較三種底圖的速度和清晰度（合併前刪除）
+# 手動執行：量測已發佈網站與三種底圖在「慢速 4G＋中低階手機」下的速度，結果寫在 Summary 頁。
+# 注意：GitHub 的機器沒有顯示晶片，向量地圖（OpenFreeMap）會用軟體繪圖，量到的時間比真實手機慢很多。
 name: 量測載入速度
 on:
-  push:
-    branches: [measure-load]
-    paths-ignore: [lab-shots/**]
-permissions:
-  contents: write
+  workflow_dispatch:
 jobs:
-  basemaps:
+  measure:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,17 +12,10 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-      # GitHub Pages 會壓縮檔案；本機伺服器用預先壓縮的檔案模擬，下載量才接近真實
-      - run: |
-          find docs -name "*.js" -o -name "*.css" -o -name "*.json" | xargs gzip -k -9
-          npx http-server docs -p 4173 -g -s &
-          sleep 3
-      - run: |
-          mkdir -p lab-shots
+      - name: 已發佈的網站
+        run: node scripts/measure-load.mjs --runs 3
+      - name: 三種底圖
+        run: |
           for m in osm ofm nlsc; do
-            node scripts/measure-load.mjs "http://localhost:4173/lab/basemap.html?map=$m&z=17" --runs 3 --shot lab-shots/$m-z17.png
-            node scripts/measure-load.mjs "http://localhost:4173/lab/basemap.html?map=$m&z=15" --runs 1 --shot lab-shots/$m-z15.png
+            node scripts/measure-load.mjs "https://iineoii.github.io/weisheng-map/lab/basemap.html?map=$m&z=17" --runs 3
           done
-      - run: |
-          git config user.name "github-actions"; git config user.email "github-actions@users.noreply.github.com"
-          git add lab-shots && git commit -m "量測截圖" && git push
