@@ -1,0 +1,27 @@
+{
+  "appId": "tw.weisheng.map",
+  "appName": "維生地圖",
+  "webDir": "docs",
+  "backgroundColor": "#1B2A41",
+  "appendUserAgent": "WeishengMap/1.0 (+https://github.com/YOUR_ACCOUNT/weisheng-map)",
+  "android": {
+    "allowMixedContent": false
+  },
+  "ios": {
+    "contentInset": "never",
+    "scheme": "WeishengMap"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "initialViewportFitValueHint": "cover",
+      "style": "DARK"
+    },
+    "SplashScreen": {
+      "launchAutoHide": false,
+      "launchShowDuration": 3000,
+      "backgroundColor": "#1B2A41",
+      "showSpinner": false
+    }
+  }
+}

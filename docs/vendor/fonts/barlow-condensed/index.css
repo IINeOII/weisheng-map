@@ -1,0 +1,4 @@
+/* Barlow Condensed（SIL OFL）— 只放拉丁字母，用於距離與數字 */
+@font-face { font-family: 'Barlow Condensed'; font-style: normal; font-display: swap; font-weight: 500; src: url(./barlow-condensed-latin-500-normal.woff2) format('woff2'); unicode-range: U+0000-00FF,U+2013-2014,U+2018-201E,U+2022,U+2026; }
+@font-face { font-family: 'Barlow Condensed'; font-style: normal; font-display: swap; font-weight: 600; src: url(./barlow-condensed-latin-600-normal.woff2) format('woff2'); unicode-range: U+0000-00FF,U+2013-2014,U+2018-201E,U+2022,U+2026; }
+@font-face { font-family: 'Barlow Condensed'; font-style: normal; font-display: swap; font-weight: 700; src: url(./barlow-condensed-latin-700-normal.woff2) format('woff2'); unicode-range: U+0000-00FF,U+2013-2014,U+2018-201E,U+2022,U+2026; }

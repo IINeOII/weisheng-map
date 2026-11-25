@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>維生地圖｜免費資源與平價好物</title>
+  <meta name="description" content="找免費食物、飲水、充電、盥洗、庇護所、就業資源，以及最划算的平價餐食與住宿。免註冊、免費使用。">
+  <meta name="theme-color" content="#1B2A41">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="vendor/fonts/chiron-goround/index.css">
+  <link rel="stylesheet" href="vendor/fonts/barlow-condensed/index.css">
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="vendor/leaflet/MarkerCluster.css">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body data-layer="free">
+  <header class="top">
+    <div class="switch" role="tablist" aria-label="切換地圖">
+      <button role="tab" data-layer="free" aria-selected="true">
+        <span class="sw-ic" data-icon="heart"></span>
+        <span class="sw-tx"><b>免費資源</b><small>食物、飲水、充電、住所</small></span>
+      </button>
+      <button role="tab" data-layer="cheap" aria-selected="false">
+        <span class="sw-ic" data-icon="badge-percent"></span>
+        <span class="sw-tx"><b>平價好物</b><small>便宜餐食、惜食、住宿</small></span>
+      </button>
+    </div>
+    <button class="top-btn" id="menuBtn" aria-label="更多" aria-expanded="false" data-icon="menu"></button>
+  </header>
+
+  <nav class="chips" id="chips" aria-label="類別篩選"></nav>
+
+  <main id="map" aria-label="地圖"></main>
+
+  <div class="target" id="target" hidden aria-hidden="true"><span data-icon="map-pin"></span></div>
+
+  <div class="fabs" id="fabs">
+    <button class="fab" id="addBtn" aria-label="回報新地點" data-icon="plus"></button>
+    <button class="fab" id="locateBtn" aria-label="移到我的位置" data-icon="locate-fixed"></button>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <section class="sheet" id="sheet" data-state="peek" aria-label="附近地點">
+    <button class="grab" id="grab" aria-label="展開或收合清單"></button>
+
+    <!-- 收合時：最近的一個地點 -->
+    <div class="peek" id="peek"></div>
+
+    <!-- 展開時：清單 -->
+    <div class="listview" id="listview">
+      <div class="list-head">
+        <h2 id="listTitle">附近</h2>
+        <button class="text-btn" id="listClose">收合</button>
+      </div>
+      <div id="promoSlot"></div>
+      <ol class="plist" id="plist"></ol>
+    </div>
+
+    <!-- 點地點後：詳細資料 -->
+    <div class="detail" id="detail"></div>
+
+    <!-- 回報選點 -->
+    <div class="pickview" id="pickview">
+      <p class="pick-hint">移動地圖，讓圖釘對準要回報的地點</p>
+      <div class="btn-row">
+        <button class="btn quiet" id="pickCancel">取消</button>
+        <button class="btn solid" id="pickOk">對準了，下一步</button>
+      </div>
+    </div>
+  </section>
+
+  <div class="menu" id="menu" hidden>
+    <button data-open="support"><span data-icon="heart"></span>支持維生地圖</button>
+    <button data-open="partner"><span data-icon="handshake"></span>店家與企業合作</button>
+    <button data-open="feedback"><span data-icon="pencil"></span>回報資料錯誤</button>
+    <button data-open="about"><span data-icon="info"></span>關於與資料來源</button>
+  </div>
+
+  <div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-card">
+      <button class="close-btn" id="modalClose" aria-label="關閉" data-icon="x"></button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <script src="vendor/leaflet/leaflet.markercluster.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/native.js"></script>
+  <script src="js/icons.js"></script>
+  <script src="js/categories.js"></script>
+  <script src="js/sources.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
