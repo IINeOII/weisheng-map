@@ -1,15 +1,22 @@
-# 暫時用：量測已發佈網站的載入速度（合併前刪除或改成手動執行）
+# 暫時用：比較底圖服務（合併前刪除）
 name: 量測載入速度
 on:
   push:
     branches: [measure-load]
 jobs:
-  measure:
+  tiles:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm }
-      - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: node scripts/measure-load.mjs --runs 3
+      - run: |
+          curl -sS -m 40 -A "WeishengMap/1.0" -o cap.xml -w "capabilities %{http_code} %{size_download} %{time_total}s\n" "https://wmts.nlsc.gov.tw/wmts" || true
+          grep -o '<ows:Title>[^<]*</ows:Title>[^<]*<ows:Identifier>EMAP[^<]*</ows:Identifier>' cap.xml | head -20 || true
+          grep -o 'template="https://wmts.nlsc.gov.tw/wmts/EMAP[^"]*"' cap.xml | head -5 || true
+          grep -A12 '<ows:Identifier>EMAP</ows:Identifier>' cap.xml | grep -E 'Format|TileMatrixSet>' | head -4 || true
+          # 台北車站附近，z16 與 z17
+          for zxy in 16/54850/28055 17/109700/56110; do
+            IFS=/ read z x y <<< "$zxy"
+            curl -sS -m 30 -A "WeishengMap/1.0" -o /dev/null -w "OSM  z$z %{http_code} %{content_type} %{size_download}B %{time_total}s\n" "https://tile.openstreetmap.org/$z/$x/$y.png" || true
+            for L in EMAP EMAP5 EMAP2 EMAP6; do
+              curl -sS -m 30 -A "WeishengMap/1.0" -o /dev/null -w "NLSC $L z$z %{http_code} %{content_type} %{size_download}B %{time_total}s\n" "https://wmts.nlsc.gov.tw/wmts/$L/default/GoogleMapsCompatible/$z/$y/$x" || true
+            done
+          done
