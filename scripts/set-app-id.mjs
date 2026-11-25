@@ -5,6 +5,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const next = process.argv[2];
 if (!next || !/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){1,}$/.test(next)) {
@@ -13,7 +14,7 @@ if (!next || !/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){1,}$/.test(next)) {
   process.exit(1);
 }
 
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const p = (...a) => path.join(root, ...a);
 const read = (f) => fs.readFileSync(p(f), "utf8");
 const write = (f, s) => fs.writeFileSync(p(f), s);

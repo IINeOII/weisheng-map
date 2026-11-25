@@ -4,9 +4,12 @@
  * 使用者打開地圖時，看得到東西嗎？
  *
  * 用法：
- *   npm run coverage                 # 預設台北市
- *   npm run coverage -- 新北          # 台北、新北、桃園、台中、台南、高雄、萬華、台北車站
- *   npm run coverage -- 25.03,121.49,25.06,121.52   # 自訂範圍（南,西,北,東）
+ *   node scripts/coverage.mjs                  # 預設台北市（不需要先 npm install，Node 18 以上即可）
+ *   node scripts/coverage.mjs 萬華             # 台北、新北、桃園、台中、台南、高雄、萬華、台北車站
+ *   node scripts/coverage.mjs wanhua           # 也可以用英文：taipei、new-taipei、taoyuan、taichung、tainan、kaohsiung、wanhua、taipei-station
+ *   node scripts/coverage.mjs 25.03,121.49,25.06,121.52   # 自訂範圍（南,西,北,東）
+ *
+ * 在 GitHub Actions 執行時，結果也會寫進該次執行的摘要頁（.github/workflows/coverage.yml）。
  *
  * 查詢條件直接讀 docs/js/categories.js，和 App 顯示的完全一致。
  */
@@ -24,10 +27,12 @@ const AREAS = {
   台北車站: [25.035, 121.505, 25.06, 121.53],
 };
 
-const arg = process.argv[2] || "台北";
+const ALIAS = { taipei: "台北", "new-taipei": "新北", taoyuan: "桃園", taichung: "台中", tainan: "台南", kaohsiung: "高雄", wanhua: "萬華", "taipei-station": "台北車站" };
+const raw = (process.argv[2] || "台北").trim();
+const arg = ALIAS[raw.toLowerCase()] || raw;
 const bbox = AREAS[arg] || arg.split(",").map(Number);
 if (bbox.length !== 4 || bbox.some(isNaN)) {
-  console.error("範圍格式錯誤。可用：" + Object.keys(AREAS).join("、") + "，或 南,西,北,東");
+  console.error("範圍格式錯誤。可用：" + Object.keys(AREAS).join("、") + "（或英文 " + Object.keys(ALIAS).join(", ") + "），或 南,西,北,東");
   process.exit(1);
 }
 const name = AREAS[arg] ? arg : "自訂範圍";
@@ -76,4 +81,9 @@ fs.mkdirSync(p("reports"), { recursive: true });
 const out = p("reports", `coverage-${name}-${report.checkedAt.slice(0, 10)}.json`);
 fs.writeFileSync(out, JSON.stringify(report, null, 2));
 console.log(`\n已存到 ${out}`);
+if (process.env.GITHUB_STEP_SUMMARY) {
+  const md = [`### ${name}（約 ${Math.round(km2)} 平方公里）`, "", "| 圖層 | 類別 | 數量 | 評估 |", "|---|---|---:|---|",
+    ...rows.map((r) => `| ${r.layer} | ${r.cat} | ${r.n ?? "—"} | ${verdict(r.n)} |`), ""].join("\n");
+  fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md + "\n");
+}
 console.log("「沒有資料」「極少」的類別，代表使用者打開會看到空地圖：先用 MapComplete 或和在地團體合作補資料，再加新功能。");

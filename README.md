@@ -54,9 +54,12 @@ node scripts/set-app-id.mjs org.yourname.weisheng
 
 ## 在加任何功能之前：先看真實資料夠不夠
 
+**最簡單：不用安裝任何東西。** 到 GitHub 倉庫 → Actions → 左邊選「資料覆蓋率」→ 右邊按 **Run workflow**。大約 2 分鐘後，點進那次執行，Summary 頁就會列出每個區域、每個類別的數量。之後每週一也會自動跑一次。
+
+在自己電腦上跑也可以，只需要 Node.js 18 以上，不用 `npm install`：
+
 ```bash
-npm install
-npm run coverage -- 萬華        # 也可以換成 台北、新北、台中、台南、高雄，或 南,西,北,東
+node scripts/coverage.mjs 萬華     # 也可以換成 台北、新北、台中、台南、高雄、wanhua、taipei-station…
 ```
 
 這會列出每個類別在 OpenStreetMap 上實際有幾筆。標「沒有資料」「極少」的類別，使用者打開只會看到空地圖。先把資料補起來（MapComplete、和在地社福團體合作），比做新功能更重要。
@@ -70,6 +73,20 @@ npm run coverage -- 萬華        # 也可以換成 台北、新北、台中、�
 | `npm run check:release` | 上架前：還沒填的金鑰、信箱、底圖都會被擋下 |
 
 推到 GitHub 後，`.github/workflows/ci.yml` 會自動跑 `npm test`。專案規則和過去錯誤的覆盤在 `CLAUDE.md`；商店、地圖服務、法規等外部限制在 `CONSTRAINTS.md`。
+
+## 在自己電腦上開始（Windows）
+
+需要先安裝 [Git](https://git-scm.com/download/win) 和 [Node.js](https://nodejs.org/)（選 LTS 版）。安裝完後打開「命令提示字元」：
+
+```bat
+cd %USERPROFILE%\Documents
+git clone https://github.com/IINeOII/weisheng-map.git
+cd weisheng-map
+npm install
+npm run serve
+```
+
+最後一行執行後，打開 http://localhost:8080 就能在本機預覽。之後每次都要先 `cd` 進 `weisheng-map` 資料夾，再執行 npm 指令。
 
 ## 第 1 步：網頁版上線
 
