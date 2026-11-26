@@ -1,0 +1,18 @@
+{
+  "id": "133048",
+  "title": "臺北市就業服務處聯絡資訊",
+  "publisher": "",
+  "license": "1",
+  "updated": "2026-09-30 10:23:30",
+  "resources": [
+    {
+      "url": "https://data.taipei/api/dataset/67e8ddde-3cbb-4946-bf16-73774abcd1b9/resource/ad036b2e-4e9b-4600-a1bb-2db17fedd7cb/download",
+      "format": "CSV",
+      "description": "臺北市就業服務處各單位連絡資訊",
+      "encoding": "其他"
+    }
+  ],
+  "picked": "https://data.taipei/api/dataset/67e8ddde-3cbb-4946-bf16-73774abcd1b9/resource/ad036b2e-4e9b-4600-a1bb-2db17fedd7cb/download",
+  "encoding": "big5",
+  "rows": 13
+}
