@@ -66,9 +66,10 @@ age > 120 ? warn(`超商惜食時段已經 ${age} 天沒確認，請重新查證
 // 政府資料：資料集編號不重複、每個都有測試檔；人工座標要在台灣範圍內（填錯經緯度順序也會擋下）
 const ids = DATASETS.map((d) => d.id);
 new Set(ids).size === ids.length ? ok(`政府資料集 ${ids.length} 個，編號不重複`) : fail("gov-datasets.mjs 有重複的資料集編號");
-const noFixture = ids.filter((id) => !["csv", "json"].some((x) => exists(`tests/fixtures/gov/${id}.${x}`)));
-// 測試檔不是每個都必須有，但沒有的要知道
-if (noFixture.length) warn(`這些政府資料集沒有測試檔（tests/fixtures/gov）：${noFixture.join("、")}`);
+const fixtureDirs = fs.readdirSync(p("tests/fixtures")).filter((d) => d.startsWith("gov"));
+const noFixture = ids.filter((id) => !fixtureDirs.some((d) => ["csv", "json"].some((x) => exists(`tests/fixtures/${d}/${id}.${x}`))));
+// 測試檔不是每個都必須有，但沒有的要知道（新增資料集的流程見 SOP.md）
+noFixture.length ? warn(`這些政府資料集沒有測試檔（tests/fixtures/gov*）：${noFixture.join("、")}`) : ok("每個政府資料集都有測試檔");
 const manual = parseCsv(read("sources/coords.csv"));
 const badRows = manual.filter((r) => {
   const c = pickCoords({ 緯度: r["緯度"], 經度: r["經度"] });
@@ -87,6 +88,15 @@ badRows.length ? fail(`sources/coords.csv 有 ${badRows.length} 筆地址空白�
   }
   total <= FONT_BUDGET ? ok(`首頁網頁字型共 ${Math.round(total / 1024)} KB（上限 ${FONT_BUDGET / 1024} KB）`)
     : fail(`首頁網頁字型共 ${Math.round(total / 1024)} KB，超過 ${FONT_BUDGET / 1024} KB：中文請用手機內建字型（CLAUDE.md B9）`);
+}
+
+// 狀態機（docs/js/machines.js）：打錯的事件名稱在執行時只會「沒反應」，不會報錯，所以在這裡擋
+section("狀態機");
+{
+  const { problems, docIsCurrent } = await import("./machines.mjs");
+  const list = problems();
+  list.length ? list.forEach(fail) : ok(`${Object.keys(loadBrowserScripts("docs/js/machines.js").MACHINES).length} 個狀態機：目標狀態都存在、都走得到、app.js 送的事件都有人處理`);
+  docIsCurrent() ? ok("STATE_MACHINES.md 是最新的") : fail("STATE_MACHINES.md 不是最新的：執行 node scripts/machines.mjs 更新");
 }
 
 // 5. CSS 防呆

@@ -11,7 +11,8 @@ window.APP_CONFIG = {
   // 低於這個縮放等級不載入地點（避免一次抓太大範圍）
   minQueryZoom: 13,
 
-  // 底圖：OSM 官方圖磚只適合小流量。流量變大前請換成 MapTiler / Stadia / Carto 等有免費額度的服務
+  // 底圖：2026-11-26 決定網頁版先用 OSM 官方圖磚（免費、已在用）；有穩定收入後再評估 Google 地圖（CONSTRAINTS.md C18）。
+  // OSM 官方圖磚只適合小流量，流量明顯變大時要換（比較頁 lab/basemap.html，選項見 C19、C20）
   tileUrl: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
   tileAttribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> 貢獻者',
 

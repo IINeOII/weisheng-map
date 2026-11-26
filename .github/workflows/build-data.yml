@@ -1,0 +1,54 @@
+# 建置地點資料：下載 OpenStreetMap 台灣資料檔、匯入政府開放資料、切成格子檔、算覆蓋率。
+# 被「發佈網頁版」（pages.yml）和「檢查與測試」（ci.yml，只在 PR）共用：
+# PR 的 Summary 頁就能先看到真實資料的匯入結果和覆蓋率，不用等合併、發佈後才發現（CLAUDE.md 規則 15、SOP.md）。
+name: 建置地點資料
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: week
+        run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+      # 同一週只向 Geofabrik 下載一次（他們請使用者「負責任地下載」）
+      - uses: actions/cache@v4
+        id: pbf
+        with:
+          path: build/taiwan.osm.pbf
+          key: osm-taiwan-${{ steps.week.outputs.week }}
+      - if: steps.pbf.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p build
+          curl -fL --retry 3 --retry-delay 20 -A "WeishengMap/1.0 (+https://github.com/IINeOII/weisheng-map)" \
+            -o build/taiwan.osm.pbf https://download.geofabrik.de/asia/taiwan-latest.osm.pbf
+          ls -lh build/taiwan.osm.pbf
+      - run: pip install osmium
+      - name: 抽取 OSM 地點
+        run: python scripts/extract-osm.py build/taiwan.osm.pbf build/candidates.ndjson build/osm-lookup.ndjson
+      # 政府網站偶爾連不上：保留上次成功下載的檔案，失敗時改用（restore-keys 取最近一次）
+      - uses: actions/cache@v4
+        with:
+          path: build/gov-cache
+          key: gov-${{ github.run_id }}
+          restore-keys: gov-
+      - name: 匯入政府開放資料
+        run: node scripts/import-gov.mjs build/gov.json --osm build/osm-lookup.ndjson --cache build/gov-cache
+      - name: 建置格子檔
+        run: node scripts/build-tiles.mjs build/candidates.ndjson build/osm "$(cat build/candidates.ndjson.timestamp)" --gov build/gov.json
+      - name: 資料覆蓋率
+        run: node scripts/coverage.mjs --dir build/osm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: osm-data
+          path: build/osm
+          retention-days: 14
+

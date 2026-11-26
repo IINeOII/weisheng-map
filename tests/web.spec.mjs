@@ -208,3 +208,95 @@ test("首次載入不下載中文網頁字型（約 2.8 MB，會拖住底圖和�
   await page.evaluate(() => document.fonts.ready);
   expect(fonts.filter((u) => !/barlow-condensed/.test(u))).toEqual([]);
 });
+
+// ── 狀態機（docs/js/machines.js，清單見 STATE_MACHINES.md）──
+
+test("回報選點時：點到標記、拉面板不會跳走；切換圖層會收起十字準星 [B10]", async ({ page }) => {
+  await mockNetwork(page);
+  await openApp(page);
+  await expect.poll(() => app(page, "window.__app.state.places.free.size")).toBe(7);
+  const body = page.locator("body"), target = page.locator("#target");
+  await page.locator("#addBtn").click();
+  await expect(body).toHaveAttribute("data-sheet", "pick");
+  await expect(target).toBeVisible();
+  await page.evaluate(() => window.__app.showDetail(window.__app.state.places.free.get("osm:node/1"))); // 等於點到標記
+  await expect(body).toHaveAttribute("data-sheet", "pick");
+  await page.locator("#grab").click();
+  await expect(body).toHaveAttribute("data-sheet", "pick");
+  await expect(target).toBeVisible();
+  await page.getByRole("tab", { name: /平價好物/ }).click();
+  await expect(body).toHaveAttribute("data-sheet", "peek");
+  await expect(target).toBeHidden();
+  // 回報流程本身照常：選點 → 對準 → 表單，準星收起
+  await page.locator("#addBtn").click();
+  await page.locator("#pickOk").click();
+  await expect(page.locator("#reportForm")).toBeVisible();
+  await expect(target).toBeHidden();
+});
+
+test("地點資料載入失敗時，空清單說「載入失敗」，不說「這附近還沒有資料」[B11]", async ({ page }) => {
+  await mockNetwork(page, { dataFails: true });
+  await page.route("**/data/places.json", (r) => r.fulfill({ status: 503, body: "" })); // 真的斷線時，自有資料也拿不到
+  await page.goto("/index.html");
+  await expect(page.locator("body")).toHaveAttribute("data-load", "failed");
+  await expect(page.locator("#peek")).toContainText("暫時載入失敗");
+  await expect(page.locator("#peek")).not.toContainText("還沒有資料");
+  await expect(page.locator("#toast")).toContainText("載入失敗");
+});
+
+test("地圖縮太小時，空清單請使用者放大，而不是說沒有資料", async ({ page }) => {
+  await mockNetwork(page, { config: { defaultZoom: 10 } });
+  await page.route("**/data/places.json", (r) => r.fulfill({ json: [] }));
+  await page.goto("/index.html");
+  await expect(page.locator("body")).toHaveAttribute("data-load", "zoomedOut");
+  await expect(page.locator("#peek")).toContainText("放大地圖");
+});
+
+test("長按類別：只顯示那一類，放開後不會又切換，提示也不會被資料載入收掉 [B12]", async ({ page }) => {
+  await mockNetwork(page);
+  await openApp(page);
+  await expect.poll(() => app(page, "window.__app.state.places.free.size")).toBe(7);
+  const chip = page.locator("#chips button", { hasText: "飲水" });
+  await chip.hover();
+  await page.mouse.down();
+  await page.waitForTimeout(700);
+  await page.mouse.up();
+  await expect(page.locator("#toast")).toContainText("只顯示飲水");
+  await expect.poll(() => app(page, "[...window.__app.state.active.free]")).toEqual(["water"]);
+  // 移動地圖觸發資料載入，載完後提示還在
+  await page.evaluate(() => window.__app.map.panBy([30, 0], { animate: false }));
+  await page.waitForTimeout(1000); // 等 0.45 秒的延遲載入跑完
+  await expect(page.locator("body")).toHaveAttribute("data-load", "ready");
+  // 要檢查「看得到」：收起的提示文字還留在元素裡，只檢查文字會假性通過（反向驗證時發現）
+  await expect(page.locator("#toast")).toBeVisible();
+  await expect(page.locator("#toast")).toContainText("只顯示飲水");
+  await expect.poll(() => app(page, "[...window.__app.state.active.free]")).toEqual(["water"]);
+});
+
+test("定位時連按不會重複要求位置；找到後按鈕顯示已定位", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__geoCalls = 0;
+    const real = navigator.geolocation.getCurrentPosition.bind(navigator.geolocation);
+    navigator.geolocation.getCurrentPosition = (ok, no, o) => { window.__geoCalls++; setTimeout(() => real(ok, no, o), 400); };
+  });
+  await mockNetwork(page);
+  await openApp(page);
+  const btn = page.locator("#locateBtn");
+  await btn.click();
+  await expect(btn).toHaveAttribute("aria-busy", "true");
+  await btn.click();
+  await btn.click();
+  await expect(page.locator("body")).toHaveAttribute("data-locate", "located");
+  await expect(btn).toHaveAttribute("aria-busy", "false");
+  expect(await app(page, "window.__geoCalls")).toBe(1);
+  expect(await app(page, "window.__app.machines")).toMatchObject({ sheet: "peek", locate: "located" });
+});
+
+test("狀態機的動作沒有實作時，啟動就在主控台報錯（不會默默沒反應）", async ({ page }) => {
+  const errors = collectErrors(page);
+  await mockNetwork(page);
+  await openApp(page);
+  expect(errors).toEqual([]); // 正式的實作都齊全
+  await page.evaluate(() => window.startMachine("sheet", { actions: {} }));
+  expect(errors.join("\n")).toMatch(/狀態機 sheet.*showTarget/);
+});

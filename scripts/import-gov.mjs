@@ -184,10 +184,17 @@ export function report(result) {
     lines.push("", "</details>");
   }
   if (result.unresolved.length) {
+    // 每個資料集各自計數，補座標時先挑影響最大的
+    const per = {};
+    for (const u of result.unresolved) per[u.source] = (per[u.source] || 0) + 1;
     lines.push("", `### 待補座標：${result.unresolved.length} 筆`, "",
       "這些地點找不到可靠的座標，暫時沒有放上地圖。確認位置後，把「地址,緯度,經度」加到 `sources/coords.csv`，下次發佈就會出現。", "",
-      "| 名稱 | 地址 | 查位置 |", "|---|---|---|");
+      Object.entries(per).map(([id, n]) => `${result.sources[id]?.name || id} ${n} 筆`).join("、"), "");
+    const long = result.unresolved.length > 20; // 太長就收起來，Summary 頁才看得到後面的覆蓋率表
+    if (long) lines.push("<details><summary>展開清單</summary>", "");
+    lines.push("| 名稱 | 地址 | 查位置 |", "|---|---|---|");
     for (const u of result.unresolved) lines.push(`| ${u.name} | ${u.address} | [Google 地圖](https://www.google.com/maps/search/${encodeURIComponent(u.address)}) |`);
+    if (long) lines.push("", "</details>");
   }
   return lines.join("\n") + "\n";
 }

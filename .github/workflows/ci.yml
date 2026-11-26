@@ -25,6 +25,11 @@ jobs:
           path: test-results/
           retention-days: 7
 
+  # 用真實資料跑一次匯入與建置（不發佈）：結果和覆蓋率寫在這次執行的 Summary 頁
+  data:
+    if: github.event_name == 'pull_request'
+    uses: ./.github/workflows/build-data.yml
+
   # 使用者在 Windows 上開發：腳本的路徑、引號寫法要在 Windows 上也能跑（CLAUDE.md 規則 16）
   windows:
     runs-on: windows-latest

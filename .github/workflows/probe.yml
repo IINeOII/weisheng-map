@@ -1,0 +1,53 @@
+# 查看政府資料集：在 GitHub 的機器上（連得到台灣政府網站）下載資料集，把原始檔和摘要提交回同一個分支。
+# 為什麼要這樣：開發環境（Claude 的工作區、部分網路）連不到 data.gov.tw（CONSTRAINTS.md C10、C16），
+# 而新增資料集前一定要先看真實欄位（CLAUDE.md 規則 1、R7）。
+#
+# 用法（流程見 SOP.md）：
+#   1. 開一個 probe/ 開頭的分支，把資料集編號（一行一個或空白分隔）寫進 sources/probe-ids.txt，推上去
+#   2. 等這個工作跑完（約 1 分鐘），結果在 Summary 頁；原始檔在分支的 probe-results/ 資料夾（git pull 就拿得到）
+#   3. 寫好對應規則後，把要當測試檔的檔案搬到 tests/fixtures/gov/，刪掉 probe-results/ 再開 PR
+# 也可以手動執行：Actions → 查看政府資料集 → Run workflow，填資料集編號。
+name: 查看政府資料集
+on:
+  push:
+    branches: ["probe/**"]
+    paths: ["sources/probe-ids.txt", "scripts/probe-gov.mjs", "scripts/gov-lib.mjs", ".github/workflows/probe.yml"]
+  workflow_dispatch:
+    inputs:
+      ids:
+        description: 資料集編號（空白分隔）
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 下載並查看
+        env:
+          IDS: ${{ github.event.inputs.ids }}
+        run: |
+          ids="${IDS:-$(grep -v '^#' sources/probe-ids.txt | tr '\n' ' ')}"
+          echo "資料集：$ids"
+          PROBE_ALL=1 node scripts/probe-gov.mjs --save probe-results $ids
+      # 只有從分支推送觸發時才提交回去（手動執行的結果看 Summary 就好，避免改到 main）
+      - name: 把結果提交回分支
+        if: github.event_name == 'push'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git add probe-results
+          git diff --cached --quiet && exit 0
+          git commit -m "查看政府資料集的結果（自動產生）"
+          git push

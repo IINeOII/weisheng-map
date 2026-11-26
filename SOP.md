@@ -1,0 +1,91 @@
+# 維生地圖：工作流程（SOP）
+
+給之後在這個專案工作的人和代理（Claude 等）。每一步都來自實際做過、踩過坑的流程；規則的「為什麼」在 `CLAUDE.md` 的覆盤表。
+
+**一句話：先確認要解決誰的問題 → 先查外部限制和真實資料 → 先找現成的開源做法 → 小步改、每一步都有測試 → 在真實資料和真實環境上驗證 → 把學到的寫回文件。**
+
+---
+
+## SOP-0 開工：接手狀態（每次都做，約 5 分鐘）
+
+1. 讀 claude.ai 專案文件 `覆盤與方向調整.md` 最上面的「新對話接手」：有沒有在等擁有者回覆、上次停在哪裡。
+2. 讀倉庫裡的 `CLAUDE.md`（規則）、`CONSTRAINTS.md`（外部限制）、`STATE_MACHINES.md`（畫面狀態）、這份 `SOP.md`。
+3. 取得程式碼並確認基準是綠的：
+   ```
+   git clone --depth 1 https://github.com/IINeOII/weisheng-map
+   npm ci
+   npm test
+   ```
+   基準就不綠時，先修好或回報，不要疊新的改動上去。
+4. 擁有者給的新決定（例如「先用目前的地圖」）立刻寫進對應文件（`CONSTRAINTS.md` 的決定欄、專案文件），不要只記在對話裡。
+
+## SOP-1 動手前：三個問題（規則 1–3）
+
+| 問題 | 怎麼確認 | 答不出來就 |
+|---|---|---|
+| 這解決誰的什麼問題？ | 對照「主要使用者是手頭緊的人和社工」；美化、多平台只是手段 | 先別做，回報擁有者 |
+| 有沒有外部限制？ | 查 `CONSTRAINTS.md`；沒有就先查證（官方文件、實際連線一次） | 查證後補一條 C#，寫來源、日期、程式哪裡落實 |
+| 真實資料夠不夠？ | GitHub Actions「發佈網頁版」Summary 的覆蓋率，或 `node scripts/coverage.mjs 地區` | 先補資料，再做功能 |
+
+## SOP-2 新增內容資源（政府開放資料集）
+
+**順序不能跳：先看真實檔案，再寫規則。**（R7、R8）
+
+1. **找候選**：在 data.gov.tw 搜尋（關鍵字例：實物銀行、食物銀行、待用餐、愛心餐食、街友、遊民、收容、盥洗、充電站、就業服務據點、社會福利服務中心）。優先順序：食物 → 安全住所 → 充電 → 其他（依覆蓋率缺口）。
+2. **在 GitHub 上查看真實內容**（開發環境連不到 data.gov.tw，C10）：
+   ```
+   git checkout -b probe/某個名字
+   # 把資料集編號寫進 sources/probe-ids.txt（一行一個）
+   git commit -am "查看資料集" && git push -u origin probe/某個名字
+   ```
+   約 1 分鐘後，「查看政府資料集」會把結果提交回同一個分支：`git pull` 後看 `probe-results/SUMMARY.md`（筆數、有沒有座標、欄位）和原始檔。
+   也可以手動執行 Actions →「查看政府資料集」→ 填編號，結果在 Summary 頁。
+3. **判斷能不能用**（每一條都要過）：
+   - 連得上嗎？連不上的縣市記在 C16，不要硬做。
+   - 會不會讓人受傷？家暴、婦女庇護一律不放（C17）；只服務特定個案、學校、平宅、只限長者或身障的據點也不放（規則 9）。
+   - 一般人走進去拿得到嗎？查機關網站，把**真實條件**寫進 `conditions`（例：桃園安心點，C22）。不能只寫「免費」。
+   - 資料多舊？停止更新的資料要在條件裡寫年份和「可能已變動」（例：充電站，C21）。
+4. **寫對應規則**：在 `scripts/gov-datasets.mjs` 加一筆 `{ id, city, short, map(row) }`。座標欄位名稱各機關不同，照真實欄位寫；沒有座標就留空，匯入程式會依序用人工座標、同地址、OSM 地址、OSM 名稱補，都找不到就列「待補座標」，**不猜**。
+5. **測試檔**：從 `probe-results/` 挑幾筆真實資料放進 `tests/fixtures/gov-more/`（或新的 `tests/fixtures/gov-*/`），刻意包含邊界情況（要排除的、沒有座標的、郵遞區號、換行）。在 `tests/gov.spec.mjs` 加測試。
+6. **開 PR**：刪掉 `probe-results/`、清空 `sources/probe-ids.txt` 的編號，從 main 開新分支提交。PR 會用真實資料跑一次建置（`build-data.yml`）：看 Summary 的「政府開放資料匯入」表（每個資料集放上地圖幾筆、待補座標幾筆）和覆蓋率。
+7. **合併後**：「發佈網頁版」跑完約 10 分鐘 CDN 才更新。把新的覆蓋率數字和待補座標數寫回專案文件。
+
+## SOP-3 改程式
+
+1. **先找開源做法，不從零寫不熟的功能。** 比較 2–5 個方案（大小、維護狀態、授權、能不能不用打包工具直接載入、定義能不能當資料檢查），把比較表寫進文件（例：`STATE_MACHINES.md`）。小型、MIT／BSD 的函式庫放進 `docs/vendor/`，附 LICENSE，加進 `sw.js` 的 SHELL。
+   - 開發環境不能直接打 GitHub API 查別的倉庫：用 `npm view 套件`、`npm pack 套件` 看版本、大小、原始碼。
+2. **單一來源**：類別在 `categories.js`、狀態機在 `machines.js`、資料集在 `gov-datasets.mjs`。需要同步的清單一定要有 `check.mjs` 檢查（規則 4）。
+3. **有兩個以上狀態、會被多個按鈕改變的東西，做成狀態機**（`STATE_MACHINES.md` 有步驟）。按鈕只送事件；「這時候不該發生」就是狀態裡不寫那個事件。
+4. **每個畫面五種狀態**：有資料、沒資料、欄位缺漏、沒設定、離線或失敗（規則 7）。空畫面的文字要分清楚「真的沒有」和「還在載／載不到」。
+5. **App 和網頁的差異只放在 `native.js`**（規則 10）。
+
+## SOP-4 驗證
+
+1. `npm test` 全部通過（靜態檢查＋網頁與模擬 App 的瀏覽器測試）。
+2. **每修一個 Bug 加一個測試**，標題寫 `[B#]`，並做**反向驗證**：暫時把修正拿掉，確認測試會失敗（規則 14）。
+   - 檢查「看不看得到」要用 `toBeVisible()`；只檢查文字會因為元素被隱藏但文字還在而假性通過（B12 反向驗證時發現）。
+   - 檢查「不存在」之前，先確認前提成立（規則 13）。
+3. 速度相關的改動，用 `scripts/measure-load.mjs`（或 Actions「量測載入速度」）在已發佈網站上量，看請求時間軸（B9）。
+4. 交付時寫清楚：哪些只在假資料／模擬環境測過，哪些在真實資料、真機上看過（規則 15）。
+
+## SOP-5 交付
+
+1. 從 main 開分支（不要直接推 main），提交訊息寫「解決了什麼」。
+2. 推上去、開 PR（只能用 REST API：`gh api repos/IINeOII/weisheng-map/pulls -f title=… -f head=… -f base=main -f body=…`）。
+3. 等 CI：Linux 測試、Windows 檢查、真實資料建置都綠。看真實資料建置的 Summary。
+4. 合併（`gh api -X PUT repos/IINeOII/weisheng-map/pulls/編號/merge -f merge_method=squash`），等「發佈網頁版」綠燈。
+5. 更新文件：
+   - 倉庫：`CLAUDE.md` 覆盤表（新的 B#／R#）、`CONSTRAINTS.md`、`STATE_MACHINES.md`、這份 SOP（流程有變時）
+   - claude.ai 專案文件 `覆盤與方向調整.md`：最上面的「新對話接手」改成現在的狀態和下一步
+6. 回報擁有者：做了什麼、哪些還沒在真實環境驗證、需要他決定或動手的事（用他電腦上現有的東西說明步驟，規則 16）。
+
+## 代理工作環境備忘（2026-11-26 實測）
+
+| 能做 | 不能做（改用） |
+|---|---|
+| `git clone/fetch/push` 這個倉庫 | 連 data.gov.tw、已發佈網站、OSM 圖磚（→ `probe.yml`、PR 的真實資料建置） |
+| `gh api` REST（PR、執行紀錄、job log） | GraphQL（`gh pr list` 等）；下載 Actions artifact（→ 讓工作流程把結果提交回分支，或印在 log） |
+| npm registry（`npm view`、`npm pack`） | 用 GitHub API 讀別的倉庫（→ npm 套件原始碼、網頁搜尋） |
+| raw.githubusercontent.com | |
+
+GitHub API 偶爾回 502 或「unexpected end of JSON input」，重試即可。
