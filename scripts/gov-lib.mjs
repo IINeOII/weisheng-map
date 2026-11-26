@@ -122,10 +122,11 @@ export function twd97ToWgs84(x, y) {
   return [(lat * 180) / Math.PI, (lng * 180) / Math.PI];
 }
 
-/** 全形數字與符號轉半形；去掉換行、括號內說明、樓層、鄰里，讓地址比較好查。 */
+/** 全形數字與符號轉半形；去掉開頭的郵遞區號、換行、括號內說明、樓層、鄰里，讓地址比較好查。 */
 export function cleanAddress(addr) {
   return String(addr || "")
     .replace(/[！-～]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/^\s*\d{3,6}\s*(?=\D)/, "")
     .replace(/　/g, " ")
     .replace(/[\r\n]+/g, "")
     .replace(/[（(][^）)]*[）)]/g, "")

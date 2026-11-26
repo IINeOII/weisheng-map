@@ -11,16 +11,18 @@
   });
 
   // ── 狀態 ──
+  // 資料放在 state；「現在處在哪個畫面／階段」由狀態機管（machines.js），見下方 M
   const state = {
     layer: "free",
     active: {},
     places: { free: new Map(), cheap: new Map() },
     userPos: null,
     selected: null,
-    sheet: "peek",
     chains: null,
     adsLoaded: false,
+    get sheet() { return M.sheet.state; }, // 舊程式與測試相容：唯讀
   };
+  const M = {}; // 狀態機：sheet（下方面板）、load（地點資料）、locate（定位）
   for (const id of Object.keys(LAYERS)) state.active[id] = new Set(LAYERS[id].categories.map((c) => c.id));
 
   /** 統計事件：接上 Plausible / GoatCounter 等不追蹤個人的工具即可（贊助曝光數要靠它） */
@@ -73,33 +75,43 @@
   }
   const refPoint = () => state.userPos || map.getCenter();
 
-  let toastTimer;
-  function toast(msg, ms = 2600, iconName) {
+  // 提示訊息。key 代表「誰顯示的」：收起時只收自己那則，不會把別人剛顯示的提示（例如「只顯示食物」）一起收掉
+  let toastTimer, toastKey = null;
+  function toast(msg, ms = 2600, iconName, key = null) {
     const el = $("#toast");
-    if (!msg) { el.hidden = true; return; }
+    if (!msg) { el.hidden = true; toastKey = null; return; }
     el.innerHTML = (iconName ? ic(iconName, 18) : "") + `<span>${esc(msg)}</span>`;
     el.hidden = false;
+    toastKey = key;
     clearTimeout(toastTimer);
-    if (ms) toastTimer = setTimeout(() => (el.hidden = true), ms);
+    if (ms) toastTimer = setTimeout(() => { el.hidden = true; toastKey = null; }, ms);
   }
+  function hideToast(key) { if (toastKey === key) toast(""); }
 
   function chainFor(p) {
     if (!state.chains || p.category !== "rescue") return null;
     return state.chains.chains.find((c) => new RegExp(c.match, "i").test(p.name || "")) || null;
   }
 
-  // ── 下方面板狀態 ──
-  function setSheet(s) {
-    state.sheet = s;
-    $("#sheet").dataset.state = s;
-    document.body.dataset.sheet = s;
-    if (s !== "detail") selectMarker(null);
-  }
+  // ── 下方面板（狀態機 sheet：peek／list／detail／pick，定義在 machines.js）──
+  M.sheet = window.startMachine("sheet", {
+    actions: {
+      selectPlace: (ctx, e) => selectMarker(e.id),
+      clearSelection: () => selectMarker(null),
+      showTarget: () => { $("#target").hidden = false; },
+      hideTarget: () => { $("#target").hidden = true; },
+      openReport: () => {
+        const c = map.getCenter();
+        openModal("report", { lat: +c.lat.toFixed(6), lng: +c.lng.toFixed(6) });
+      },
+    },
+  });
+  M.sheet.subscribe((s) => { $("#sheet").dataset.state = s; document.body.dataset.sheet = s; });
   // 浮動按鈕永遠待在面板上方
   if (window.ResizeObserver) new ResizeObserver(([e]) => document.documentElement.style.setProperty("--sheet-h", e.target.offsetHeight + "px")).observe($("#sheet"));
-  $("#grab").onclick = () => setSheet(state.sheet === "peek" ? "list" : "peek");
-  $("#listClose").onclick = () => setSheet("peek");
-  map.on("click", () => { if (state.sheet === "detail" || state.sheet === "list") setSheet("peek"); });
+  $("#grab").onclick = () => M.sheet.send("TOGGLE");
+  $("#listClose").onclick = () => M.sheet.send("CLOSE");
+  map.on("click", () => M.sheet.send("MAP_TAP"));
 
   function selectMarker(id) {
     if (state.selected && markers.has(state.selected)) {
@@ -151,6 +163,7 @@
     renderSheet();
   }
 
+  let pressTimer = null, longPressed = false;
   function renderChips() {
     const counts = {};
     const b = map.getBounds();
@@ -164,13 +177,23 @@
       btn.setAttribute("aria-pressed", state.active[state.layer].has(c.id));
       btn.innerHTML = `<span class="badge-ic">${ic(c.icon, 17)}</span>${esc(c.label)}<span class="n">${counts[c.id] || 0}</span>`;
       btn.onclick = () => {
+        if (longPressed) { longPressed = false; return; } // 長按放開後瀏覽器還會補一個 click，不能再切換一次
         const set = state.active[state.layer];
         set.has(c.id) ? set.delete(c.id) : set.add(c.id);
         renderMarkers();
       };
-      let t; // 長按：只看這一類
-      btn.addEventListener("pointerdown", () => { t = setTimeout(() => { state.active[state.layer] = new Set([c.id]); renderMarkers(); toast(`只顯示${c.label}，再點其他類別可加回來`); t = "done"; }, 550); });
-      ["pointerup", "pointerleave"].forEach((ev) => btn.addEventListener(ev, () => { if (t !== "done") clearTimeout(t); }));
+      // 長按：只看這一類。三個階段：沒按 → 按住（計時中）→ 已觸發；放開或滑走時回到沒按
+      btn.addEventListener("pointerdown", () => {
+        clearTimeout(pressTimer);
+        longPressed = false;
+        pressTimer = setTimeout(() => {
+          longPressed = true;
+          state.active[state.layer] = new Set([c.id]);
+          renderMarkers();
+          toast(`只顯示${c.label}，再點其他類別可加回來`, 2600, null, "chips");
+        }, 550);
+      });
+      ["pointerup", "pointerleave", "pointercancel"].forEach((ev) => btn.addEventListener(ev, () => clearTimeout(pressTimer)));
       nav.appendChild(btn);
     }
   }
@@ -179,7 +202,7 @@
     const items = nearby();
     renderPeek(items);
     renderList(items);
-    if (state.sheet === "detail" && state.selected) {
+    if (M.sheet.state === "detail" && state.selected) {
       const p = state.places[state.layer].get(state.selected);
       if (p) $("#detail").querySelector(".d-dist")?.replaceWith(distBlock(p));
     }
@@ -189,9 +212,8 @@
     const el = $("#peek");
     const nearest = items.find((x) => !x.p.sponsored) || items[0];
     if (!nearest) {
-      const zoomedOut = map.getZoom() < CFG.minQueryZoom;
-      el.innerHTML = `<div class="peek-empty"><b>${zoomedOut ? "放大地圖就會顯示這一區" : "這附近還沒有資料"}</b>
-        <span>${zoomedOut ? "用兩指放大，或按右邊的定位鈕" : "知道這附近有什麼嗎？按右邊的 ＋ 告訴大家"}</span></div>`;
+      const [title, hint] = emptyText();
+      el.innerHTML = `<div class="peek-empty" data-empty="${esc(M.load.state)}"><b>${title}</b><span>${hint}</span></div>`;
       return;
     }
     const { p, d } = nearest;
@@ -207,18 +229,38 @@
       <div class="peek-foot"><span class="ctx">附近共 ${items.length} 處</span>
         <button class="text-btn" id="openList">${ic("list", 18)}看全部</button></div>`;
     el.querySelector(".signboard").onclick = () => showDetail(p);
-    $("#openList").onclick = () => setSheet("list");
+    $("#openList").onclick = () => M.sheet.send("OPEN_LIST");
+  }
+
+  /**
+   * 附近沒有地點時要說什麼：依「地點資料」狀態機（machines.js 的 load）決定，
+   * 不能在載入失敗或還在載入時說「這附近還沒有資料」，那會讓人以為真的沒有，還叫人去回報
+   */
+  function emptyText() {
+    const what = state.layer === "free" ? "免費資源" : "平價好店";
+    switch (M.load.state) {
+      case "zoomedOut": case "tooWide":
+        return ["放大地圖就會顯示這一區", "用兩指放大，或按右邊的定位鈕"];
+      case "idle": case "loading":
+        return ["正在載入這一區…", "網路慢的時候要等幾秒"];
+      case "failed":
+        return ["這一區的資料暫時載入失敗", "請確認網路，移動地圖就會再試一次"];
+      default: // ready、stale
+        return ["這附近還沒有資料", `知道這附近有${what}嗎？按右邊的 ＋ 告訴大家`];
+    }
   }
 
   function renderList(items) {
-    $("#listTitle").textContent = items.length ? `附近 ${items.length} 處${LAYERS[state.layer].label}` : "這附近還沒有資料";
     const promoted = renderPromo(items);
     const ol = $("#plist");
     ol.innerHTML = "";
     if (!items.length) {
-      ol.innerHTML = `<li class="empty">放大地圖或換個區域看看。知道這附近有${state.layer === "free" ? "免費資源" : "平價好店"}，可以按右邊的 ＋ 回報。</li>`;
+      const [title, hint] = emptyText();
+      $("#listTitle").textContent = title;
+      ol.innerHTML = `<li class="empty" data-empty="${esc(M.load.state)}">${hint}</li>`;
       return;
     }
+    $("#listTitle").textContent = `附近 ${items.length} 處${LAYERS[state.layer].label}`;
     items.filter((x) => x.p.id !== promoted).slice(0, 60).forEach(({ p, d }, i) => {
       const c = cat(p);
       const sub = !p.name ? "沒有標示名稱" : p.item ? `${esc(p.item)}${p.priceTwd != null ? ` <span class="price">$${esc(p.priceTwd)}</span>` : ""}` : esc(p.opening || p.address || c.label);
@@ -244,6 +286,7 @@
   }
 
   function showDetail(p) {
+    if (!M.sheet.can("SHOW_DETAIL")) return; // 例如回報選點時點到標記：不理會，免得選到一半跳走
     const c = cat(p);
     const facts = [];
     if (p.item || p.priceTwd != null) facts.push(["badge-percent", `${esc(p.item || "")} ${p.priceTwd != null ? `<span class="price">NT$${esc(p.priceTwd)}</span>` : ""}`]);
@@ -290,7 +333,7 @@
       ${links.length ? `<div class="d-links">${links.join("")}</div>` : ""}
       <div class="btn-row"><button class="btn quiet small" id="detailBack">${ic("chevron-down", 18)}回到附近</button></div>`;
     el.querySelector(".d-dist").replaceWith(distBlock(p));
-    $("#detailBack").onclick = () => setSheet("peek");
+    $("#detailBack").onclick = () => M.sheet.send("CLOSE");
     $("#shareBtn").onclick = async () => {
       const where = `https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lng}#map=18/${p.lat}/${p.lng}`;
       const text = [p.name || c.label, c.label !== (p.name || c.label) ? c.label : "", p.address, p.opening].filter(Boolean).join("\n");
@@ -300,8 +343,7 @@
       track("place_share", { category: p.category });
     };
     el.scrollTop = 0;
-    setSheet("detail");
-    selectMarker(p.id);
+    M.sheet.send({ type: "SHOW_DETAIL", id: p.id });
     // 讓地點出現在面板上方
     const m = markers.get(p.id);
     const go = () => {
@@ -356,24 +398,36 @@
     document.head.appendChild(s);
   }
 
-  // ── 載入資料 ──
-  let loadTimer, loadSeq = 0;
+  // ── 載入資料（狀態機 load：idle／zoomedOut／loading／ready／stale／failed／tooWide）──
+  let loadTimer, loadSeq = 0, slowTimer;
   const scheduleLoad = () => { clearTimeout(loadTimer); loadTimer = setTimeout(loadVisible, 450); };
+  M.load = window.startMachine("load", {
+    actions: {
+      // 慢網路才提示「載入中」：快的時候閃一下反而干擾
+      startSlowHint: () => { clearTimeout(slowTimer); slowTimer = setTimeout(() => toast("正在載入這一區…", 0, null, "load"), 400); },
+      stopSlowHint: () => { clearTimeout(slowTimer); hideToast("load"); },
+      hintStale: () => toast("目前沒有網路，先顯示上次存下的資料", 3500, "wifi-off", "load"),
+      hintFailed: () => toast("地點資料暫時載入失敗，移動地圖會再試一次", 4000, "circle-alert", "load"),
+    },
+  });
+  M.load.subscribe((s) => { document.body.dataset.load = s; });
 
   async function loadVisible() {
     const layerId = state.layer;
-    if (map.getZoom() < CFG.minQueryZoom) { renderMarkers(); return; }
-    const seq = ++loadSeq;
-    const slow = setTimeout(() => seq === loadSeq && toast("正在載入這一區…", 0), 400);
+    const seq = ++loadSeq; // 比較晚送出的請求才算數：舊的結果回來時直接丟掉
+    if (map.getZoom() < CFG.minQueryZoom) { M.load.send("ZOOMED_OUT"); renderMarkers(); return; }
+    M.load.send("FETCH");
+    renderSheet(); // 空清單馬上改說「正在載入」
+    let result = "FAILED";
     try {
-      const { places, stale } = await window.Sources.fetchOsm(layerId, map.getBounds());
+      const { places, stale, tooWide } = await window.Sources.fetchOsm(layerId, map.getBounds());
       for (const p of places) if (!state.places[layerId].has(p.id)) state.places[layerId].set(p.id, p);
-      if (seq === loadSeq) toast(stale ? "目前沒有網路，先顯示上次存下的資料" : "", stale ? 3500 : 1, stale ? "wifi-off" : null);
+      result = tooWide ? "TOO_WIDE" : stale ? "STALE" : "LOADED";
     } catch (e) {
-      if (seq === loadSeq) toast("地點資料暫時載入失敗，移動地圖會再試一次", 4000, "circle-alert");
       console.warn(e);
     }
-    clearTimeout(slow);
+    if (seq !== loadSeq) return;
+    M.load.send(result);
     if (layerId === state.layer) renderMarkers();
   }
 
@@ -388,7 +442,8 @@
   function setLayer(id, fromHash) {
     if (!LAYERS[id]) id = "free";
     if (id === state.layer && map.hasLayer(groups[id])) return;
-    setSheet("peek");
+    M.sheet.send("LAYER_CHANGED");
+    loadSeq++; // 上一個圖層還沒回來的結果不再算數
     map.removeLayer(groups[state.layer]);
     state.layer = id;
     document.body.dataset.layer = id;
@@ -408,22 +463,35 @@
   });
   map.on("moveend", () => { scheduleLoad(); renderChips(); renderSheet(); });
 
-  // ── 定位 ──
-  $("#locateBtn").onclick = async () => {
-    toast("正在找你的位置…", 0, "locate-fixed");
-    try {
-      const { lat, lng } = await window.Native.getPosition();
-      state.userPos = L.latLng(lat, lng);
-      const meIcon = L.divIcon({ className: "", html: '<div class="me"></div>', iconSize: [20, 20] });
-      if (!meMarker) meMarker = L.marker(state.userPos, { icon: meIcon, interactive: false, zIndexOffset: 2000 }).addTo(map);
-      else meMarker.setLatLng(state.userPos);
-      $("#locateBtn").classList.add("on");
-      map.setView(state.userPos, Math.max(map.getZoom(), 16));
-      toast("", 1);
-    } catch (e) {
-      toast(e.message || "無法取得位置，可以直接拖曳地圖找", 4000, "circle-alert");
-    }
-  };
+  // ── 定位（狀態機 locate：idle／locating／located）──
+  M.locate = window.startMachine("locate", {
+    actions: {
+      requestPosition: async () => {
+        toast("正在找你的位置…", 0, "locate-fixed", "locate");
+        try {
+          const { lat, lng } = await window.Native.getPosition();
+          state.userPos = L.latLng(lat, lng);
+          const meIcon = L.divIcon({ className: "", html: '<div class="me"></div>', iconSize: [20, 20] });
+          if (!meMarker) meMarker = L.marker(state.userPos, { icon: meIcon, interactive: false, zIndexOffset: 2000 }).addTo(map);
+          else meMarker.setLatLng(state.userPos);
+          M.locate.send("FOUND");
+          hideToast("locate");
+          map.setView(state.userPos, Math.max(map.getZoom(), 16));
+        } catch (e) {
+          M.locate.send("FAILED");
+          toast(e.message || "無法取得位置，可以直接拖曳地圖找", 4000, "circle-alert", "locate");
+        }
+      },
+    },
+    guards: { hasPosition: () => !!state.userPos },
+  });
+  M.locate.subscribe((s) => {
+    const b = $("#locateBtn");
+    b.classList.toggle("on", s === "located");
+    b.setAttribute("aria-busy", s === "locating");
+    document.body.dataset.locate = s;
+  });
+  $("#locateBtn").onclick = () => M.locate.send("LOCATE"); // 找位置時再按，狀態機不理會，不會重複要求權限
 
   // ── 選單 ──
   const menu = $("#menu");
@@ -500,7 +568,7 @@
     const list = Object.values(state.dataInfo?.gov?.sources || {});
     if (!list.length) return "";
     const links = list.map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)}</a>`).join("、");
-    return `<li data-source="gov">食物銀行、愛心餐食、街友盥洗與中途之家：政府開放資料（${links}），依<a href="https://data.gov.tw/license" target="_blank" rel="noopener">政府資料開放授權條款第 1 版</a>使用</li>`;
+    return `<li data-source="gov">食物銀行、愛心餐食與待用餐、街友盥洗與中途之家、社福中心、就業服務站、免費手機充電站：政府開放資料（${links}），依<a href="https://data.gov.tw/license" target="_blank" rel="noopener">政府資料開放授權條款第 1 版</a>使用</li>`;
   }
 
   function aboutView() {
@@ -527,14 +595,10 @@
   }
 
   // ── 回報地點 ──
-  $("#addBtn").onclick = () => { setSheet("pick"); $("#target").hidden = false; };
-  $("#pickCancel").onclick = () => { $("#target").hidden = true; setSheet("peek"); };
-  $("#pickOk").onclick = () => {
-    const c = map.getCenter();
-    $("#target").hidden = true;
-    setSheet("peek");
-    openModal("report", { lat: +c.lat.toFixed(6), lng: +c.lng.toFixed(6) });
-  };
+  // 十字準星的顯示與收起由狀態機 sheet 的 pick 狀態負責（進入時顯示、離開時一定收起）
+  $("#addBtn").onclick = () => M.sheet.send("START_PICK");
+  $("#pickCancel").onclick = () => M.sheet.send("CANCEL");
+  $("#pickOk").onclick = () => M.sheet.send("CONFIRM");
   hydrateIcons($("#target"));
   $("#target").querySelector("svg").setAttribute("width", 46);
 
@@ -646,8 +710,7 @@
   window.Native.onBackButton(() => {
     if (!modal.hidden) { closeModal(); return true; }
     if (!menu.hidden) { menu.hidden = true; return true; }
-    if (state.sheet === "pick") { $("#pickCancel").click(); return true; }
-    if (state.sheet !== "peek") { setSheet("peek"); return true; }
+    if (M.sheet.can("BACK")) { M.sheet.send("BACK"); return true; }
     return false;
   });
 
@@ -664,7 +727,6 @@
     window.Sources.dataInfo().then((d) => (state.dataInfo = d));
     const h = location.hash.slice(1);
     map.addLayer(groups.free);
-    setSheet("peek");
     if (LAYERS[h] && h !== "free") setLayer(h, true);
     else { renderMarkers(); loadVisible(); if (["support", "partner", "about"].includes(h)) openModal(h); }
     loadOwn();
@@ -673,5 +735,9 @@
 
   if (!window.Native.isApp && "serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 
-  window.__app = { state, map, setLayer, openModal, showDetail };
+  // 給測試與代理用：目前狀態一次看完（各狀態機的狀態也寫在 <body data-sheet / data-load / data-locate>）
+  window.__app = {
+    state, map, setLayer, openModal, showDetail,
+    get machines() { return Object.fromEntries(Object.entries(M).map(([k, m]) => [k, m.state])); },
+  };
 })();

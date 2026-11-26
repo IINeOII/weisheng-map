@@ -1,10 +1,11 @@
 /* 離線快取：App 本體先存起來，沒網路也能打開並看到上次載入的地點（地點快取在 localStorage） */
-const VERSION = "v4";
+const VERSION = "v5";
 const SHELL = [
   "./", "index.html", "css/app.css",
-  "js/config.js", "js/native.js", "js/icons.js", "js/categories.js", "js/sources.js", "js/app.js",
+  "js/config.js", "js/native.js", "js/icons.js", "js/categories.js", "js/sources.js", "js/machines.js", "js/app.js",
   "vendor/leaflet/leaflet.js", "vendor/leaflet/leaflet.css",
   "vendor/leaflet/leaflet.markercluster.js", "vendor/leaflet/MarkerCluster.css",
+  "vendor/xstate-fsm/xstate.fsm.js",
   "vendor/fonts/barlow-condensed/index.css",
   "data/chain-discounts.json", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png",
 ];

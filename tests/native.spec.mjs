@@ -53,6 +53,15 @@ for (const platform of ["ios", "android"]) {
       expect(await page.evaluate("window.__calls")).toContain("exit");
     });
 
+    test("返回鍵在回報選點時：取消選點、收起十字準星，不會離開 App [B10]", async ({ page }) => {
+      await page.locator("#addBtn").click();
+      await expect(page.locator("#target")).toBeVisible();
+      await page.evaluate("window.__back()");
+      await expect(page.locator("body")).toHaveAttribute("data-sheet", "peek");
+      await expect(page.locator("#target")).toBeHidden();
+      expect(await page.evaluate("window.__calls")).not.toContain("exit");
+    });
+
     test("商店規範：App 內沒有贊助按鈕、沒有 AdSense", async ({ page }) => {
       await page.evaluate(() => window.__app.openModal("support"));
       await expect(page.locator("[data-track=donate_click]")).toHaveCount(0);
