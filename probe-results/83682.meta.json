@@ -1,0 +1,30 @@
+{
+  "id": "83682",
+  "title": "臺中市政府就業服務據點",
+  "publisher": "",
+  "license": "1",
+  "updated": "2026-03-18 17:03:12",
+  "resources": [
+    {
+      "url": "https://newdatacenter.taichung.gov.tw/api/v1/no-auth/resource.download?rid=51a3c560-9aca-45f0-8dca-03996f3b9e3d",
+      "format": "CSV",
+      "description": "臺中市各區之就業服務據點資訊及聯絡方式1120713.CSV.CSV",
+      "encoding": "UTF-8"
+    },
+    {
+      "url": "https://newdatacenter.taichung.gov.tw/api/v1/no-auth/resource.download?rid=da4a3a2d-53f5-4dbc-9532-5346ba048309",
+      "format": "JSON",
+      "description": "臺中市各區之就業服務據點資訊及聯絡方式1120713.CSV.JSON",
+      "encoding": "UTF-8"
+    },
+    {
+      "url": "https://newdatacenter.taichung.gov.tw/api/v1/no-auth/resource.download?rid=eb48693a-e168-40ff-9c29-c76392fa57db",
+      "format": "XML",
+      "description": "臺中市各區之就業服務據點資訊及聯絡方式1120713.CSV.XML",
+      "encoding": "UTF-8"
+    }
+  ],
+  "picked": "https://newdatacenter.taichung.gov.tw/api/v1/no-auth/resource.download?rid=da4a3a2d-53f5-4dbc-9532-5346ba048309",
+  "encoding": "utf-8",
+  "rows": 26
+}

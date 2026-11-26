@@ -1,0 +1,18 @@
+{
+  "id": "95216",
+  "title": "就業服務據點",
+  "publisher": "",
+  "license": "1",
+  "updated": "2026-09-15 15:34:56",
+  "resources": [
+    {
+      "url": "https://email.chcg.gov.tw/df/9jdt2b4sw6uvxo1yhw4r685r64l72e",
+      "format": "CSV",
+      "description": "",
+      "encoding": "BIG5"
+    }
+  ],
+  "picked": "https://email.chcg.gov.tw/df/9jdt2b4sw6uvxo1yhw4r685r64l72e",
+  "encoding": "big5",
+  "rows": 29
+}

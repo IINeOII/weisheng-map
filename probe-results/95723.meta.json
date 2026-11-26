@@ -1,0 +1,18 @@
+{
+  "id": "95723",
+  "title": "嘉義市愛心待用店家",
+  "publisher": "",
+  "license": "1",
+  "updated": "2026-05-22 10:29:40",
+  "resources": [
+    {
+      "url": "https://data.chiayi.gov.tw/opendata/api/getResource?oid=48528221-addf-4569-bf2a-6f6fad587fe2&rid=e44a4e6d-ea2a-4a83-bebe-347f47d4b0d7",
+      "format": "CSV",
+      "description": "嘉義市愛心待用店家",
+      "encoding": "UTF-8"
+    }
+  ],
+  "picked": "https://data.chiayi.gov.tw/opendata/api/getResource?oid=48528221-addf-4569-bf2a-6f6fad587fe2&rid=e44a4e6d-ea2a-4a83-bebe-347f47d4b0d7",
+  "encoding": "utf-8",
+  "rows": 30
+}

@@ -1,0 +1,18 @@
+{
+  "id": "28592",
+  "title": "106-107年中央行政機關室內公共區域免費手機充電站查詢服務",
+  "publisher": "",
+  "license": "1",
+  "updated": "2025-12-23 09:20:19",
+  "resources": [
+    {
+      "url": "https://itaiwan.gov.tw/ITaiwanDW/GetFile?fileName=charge_station_list.csv&type=6",
+      "format": "CSV",
+      "description": "行政院及所屬各級機關(構、全國各地方縣市政府)免費手機充電站服務",
+      "encoding": "UTF-8"
+    }
+  ],
+  "picked": "https://itaiwan.gov.tw/ITaiwanDW/GetFile?fileName=charge_station_list.csv&type=6",
+  "encoding": "utf-8-bom",
+  "rows": 2328
+}

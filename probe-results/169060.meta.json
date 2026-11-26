@@ -1,0 +1,18 @@
+{
+  "id": "169060",
+  "title": "新北市街友外展服務中心",
+  "publisher": "",
+  "license": "1",
+  "updated": "2026-07-08 14:46:33",
+  "resources": [
+    {
+      "url": "https://data.ntpc.gov.tw/api/datasets/a47b083f-7e87-4b14-88df-71b8042f4959/csv/file",
+      "format": "CSV",
+      "description": "新北市街友外展中心資訊",
+      "encoding": "UTF-8"
+    }
+  ],
+  "picked": "https://data.ntpc.gov.tw/api/datasets/a47b083f-7e87-4b14-88df-71b8042f4959/csv/file",
+  "encoding": "utf-8-bom",
+  "rows": 1
+}

@@ -1,0 +1,18 @@
+{
+  "id": "159504",
+  "title": "就業服務據點",
+  "publisher": "",
+  "license": "1",
+  "updated": "2022-11-08 22:36:11",
+  "resources": [
+    {
+      "url": "https://ws.hl.gov.tw/001/Upload/518/relfile/23071/104507/614a5676-ec3f-4f9c-a153-210f17d73438.csv",
+      "format": "CSV",
+      "description": "",
+      "encoding": "UTF-8"
+    }
+  ],
+  "picked": "https://ws.hl.gov.tw/001/Upload/518/relfile/23071/104507/614a5676-ec3f-4f9c-a153-210f17d73438.csv",
+  "encoding": "utf-8-bom",
+  "rows": 13
+}

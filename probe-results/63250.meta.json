@@ -1,0 +1,18 @@
+{
+  "id": "63250",
+  "title": "嘉義市就業服務據點",
+  "publisher": "",
+  "license": "1",
+  "updated": "2026-05-08 11:07:46",
+  "resources": [
+    {
+      "url": "https://data.chiayi.gov.tw/opendata/api/getResource?oid=a9e53743-0675-442d-b3b2-f473da0cdef7&rid=b6a1e365-c735-4813-a5c8-68b6bdf35b3d",
+      "format": "CSV",
+      "description": "嘉義市就業服務據點",
+      "encoding": "UTF-8"
+    }
+  ],
+  "picked": "https://data.chiayi.gov.tw/opendata/api/getResource?oid=a9e53743-0675-442d-b3b2-f473da0cdef7&rid=b6a1e365-c735-4813-a5c8-68b6bdf35b3d",
+  "encoding": "utf-8",
+  "rows": 2
+}

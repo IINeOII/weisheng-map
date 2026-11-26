@@ -1,0 +1,18 @@
+{
+  "id": "121331",
+  "title": "臺北市生活危機服務_臺北市社會福利服務中心",
+  "publisher": "",
+  "license": "1",
+  "updated": "2026-10-13 20:02:55",
+  "resources": [
+    {
+      "url": "https://data.taipei/api/dataset/ece023db-a5f8-4399-97da-f04d7f4009e3/resource/1a2d417e-c121-4a12-835f-97ee6852c4b8/download",
+      "format": "CSV",
+      "description": "臺北市社會福利服務中心",
+      "encoding": "UTF-8"
+    }
+  ],
+  "picked": "https://data.taipei/api/dataset/ece023db-a5f8-4399-97da-f04d7f4009e3/resource/1a2d417e-c121-4a12-835f-97ee6852c4b8/download",
+  "encoding": "utf-8-bom",
+  "rows": 13
+}

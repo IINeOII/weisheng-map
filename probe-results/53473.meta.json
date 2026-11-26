@@ -1,0 +1,24 @@
+{
+  "id": "53473",
+  "title": "就業服務據點",
+  "publisher": "",
+  "license": "1",
+  "updated": "2025-09-30 21:53:27",
+  "resources": [
+    {
+      "url": "https://soa.tainan.gov.tw/Api/Service/Get/0e2e6c3d-1ff1-44b6-8373-02edc5b8c09d",
+      "format": "JSON",
+      "description": "就業服務台據點(含經緯度)",
+      "encoding": "UTF-8"
+    },
+    {
+      "url": "https://data.tainan.gov.tw/File/ResourceCsvDownload/0e2e6c3d-1ff1-44b6-8373-02edc5b8c09d",
+      "format": "CSV",
+      "description": "就業服務台據點(含經緯度)",
+      "encoding": "UTF-8"
+    }
+  ],
+  "picked": "https://data.tainan.gov.tw/File/ResourceCsvDownload/0e2e6c3d-1ff1-44b6-8373-02edc5b8c09d",
+  "encoding": "utf-8-bom",
+  "rows": 17
+}

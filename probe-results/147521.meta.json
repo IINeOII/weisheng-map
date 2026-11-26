@@ -1,0 +1,18 @@
+{
+  "id": "147521",
+  "title": "桃園市安心點愛心餐食服務合作店家",
+  "publisher": "",
+  "license": "1",
+  "updated": "2026-11-25 10:04:07",
+  "resources": [
+    {
+      "url": "https://opendata.tycg.gov.tw/api/dataset/2c52148a-a495-4fc5-831e-7e821f93b05c/resource/9cf7f4f2-2a5f-4f97-8b46-1ff310075d67/download",
+      "format": "CSV",
+      "description": "115年桃園市安心點愛心餐食服務合作店家",
+      "encoding": "BIG5"
+    }
+  ],
+  "picked": "https://opendata.tycg.gov.tw/api/dataset/2c52148a-a495-4fc5-831e-7e821f93b05c/resource/9cf7f4f2-2a5f-4f97-8b46-1ff310075d67/download",
+  "encoding": "big5",
+  "rows": 256
+}
