@@ -300,3 +300,30 @@ test("狀態機的動作沒有實作時，啟動就在主控台報錯（不會�
   await page.evaluate(() => window.startMachine("sheet", { actions: {} }));
   expect(errors.join("\n")).toMatch(/狀態機 sheet.*showTarget/);
 });
+
+test("合作團體提供的地點：寫出團體與確認日期，超過 60 天提醒可能已變動；關於頁列出團體", async ({ page }) => {
+  await mockNetwork(page, { gov: true });
+  await openApp(page);
+  const find = (name) => page.evaluate((n) => [...window.__app.state.places.free.values()].find((p) => p.name === n)?.id, name);
+  await expect.poll(() => find("測試共食餐桌")).toBeTruthy();
+  const show = async (name) => page.evaluate((id) => window.__app.showDetail(window.__app.state.places.free.get(id)), await find(name));
+  const d = page.locator("#detail");
+
+  await show("測試共食餐桌");
+  await expect(d.locator('[data-source="partner"]')).toBeVisible();
+  await expect(d.locator('[data-source="partner"]')).toContainText(/由測試協會提供，.*確認過/);
+  await expect(d).toContainText("不用先登記，直接去就可以");
+  await expect(d.getByRole("link", { name: /網站/ })).toHaveAttribute("href", "https://example.org");
+
+  await show("測試澡堂"); // 確認日期 2020-01-01
+  await expect(d.locator('[data-source="partner"]')).toContainText("可能已經變動");
+
+  // 不公開地址的地點不會出現在地圖上
+  expect(await find("測試女性中途之家")).toBeUndefined();
+
+  await page.evaluate(() => window.__app.openModal("about"));
+  const about = page.locator('#modalBody [data-source="partner"]');
+  await expect(about).toBeVisible();
+  await expect(about.getByRole("link", { name: "測試協會" })).toHaveAttribute("href", "https://example.org");
+  await expect(about).toContainText("第二測試團體");
+});

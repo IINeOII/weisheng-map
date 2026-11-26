@@ -304,6 +304,10 @@
       fresh = age > 60 ? `<p class="note stale">${age} 天前確認過，可能已經變動，出發前最好先問一下</p>` : `<p class="note">${age === 0 ? "今天" : age + " 天前"}確認過</p>`;
     } else if (p.source === "osm") {
       fresh = `<p class="note">資料來自 OpenStreetMap 社群</p>`;
+    } else if (p.source === "partner") {
+      // 合作團體提供：寫出團體名稱和確認日期；超過 60 天就提醒可能已變動（和自有資料同一個標準）
+      const when = age == null ? "" : age > 60 ? `，${age} 天前確認過，可能已經變動，出發前最好先問一下` : `，${age === 0 ? "今天" : age + " 天前"}確認過`;
+      fresh = `<p class="note${age > 60 ? " stale" : ""}" data-source="partner">由${esc(p.partner)}提供${when}</p>`;
     } else if (p.source === "gov") {
       const names = (p.sources || []).map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)}</a>`).join("、");
       fresh = `<p class="note" data-source="gov">資料來自政府開放資料${names ? `：${names}` : ""}。內容以機關公告為準，出發前最好先打電話確認。</p>`;
@@ -565,10 +569,13 @@
 
   // 政府資料開放授權條款要求標示出處：列出實際用到的資料集
   function govSourcesItem() {
-    const list = Object.values(state.dataInfo?.gov?.sources || {});
-    if (!list.length) return "";
-    const links = list.map((s) => `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)}</a>`).join("、");
-    return `<li data-source="gov">食物銀行、愛心餐食與待用餐、街友盥洗與中途之家、社福中心、就業服務站、免費手機充電站：政府開放資料（${links}），依<a href="https://data.gov.tw/license" target="_blank" rel="noopener">政府資料開放授權條款第 1 版</a>使用</li>`;
+    const all = Object.values(state.dataInfo?.gov?.sources || {});
+    const gov = all.filter((s) => s.kind !== "partner"), partners = all.filter((s) => s.kind === "partner");
+    const link = (s) => (s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name)}</a>` : esc(s.name));
+    let html = "";
+    if (partners.length) html += `<li data-source="partner">供餐、盥洗、庇護等第一線資訊：合作團體提供（${partners.map(link).join("、")}），每兩個月確認一次</li>`;
+    if (gov.length) html += `<li data-source="gov">食物銀行、愛心餐食與待用餐、街友盥洗與中途之家、社福中心、就業服務站、免費手機充電站：政府開放資料（${gov.map(link).join("、")}），依<a href="https://data.gov.tw/license" target="_blank" rel="noopener">政府資料開放授權條款第 1 版</a>使用</li>`;
+    return html;
   }
 
   function aboutView() {

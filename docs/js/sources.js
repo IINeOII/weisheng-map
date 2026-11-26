@@ -57,14 +57,15 @@
     return keys;
   }
 
-  /** 精簡格式 → App 用的地點物件；編號 g 開頭的是政府開放資料 */
+  /** 精簡格式 → App 用的地點物件；編號 g 開頭的是政府開放資料或合作團體（出處的 kind 是 partner）提供的 */
   function expand(layerId, r, index) {
     if (r.i[0] === "g") {
       const srcs = (r.g || []).map((id) => index && index.gov && index.gov.sources[id]).filter(Boolean);
+      const partner = srcs.find((s) => s.kind === "partner");
       return {
-        id: `gov:${r.i.slice(1)}`, source: "gov", sources: srcs,
-        layer: layerId, category: r.c, name: r.n || "", lat: r.a, lng: r.o,
-        address: r.d || "", opening: r.h || "", phone: r.p || "", conditions: r.e || "", website: "", fee: "", description: "",
+        id: `gov:${r.i.slice(1)}`, source: partner ? "partner" : "gov", sources: srcs, partner: partner ? partner.name : "",
+        layer: layerId, category: r.c, name: r.n || "", lat: r.a, lng: r.o, lastVerified: r.v || "",
+        address: r.d || "", opening: r.h || "", phone: r.p || "", conditions: r.e || "", website: r.w || "", fee: "", description: "",
       };
     }
     const type = { n: "node", w: "way", r: "relation" }[r.i[0]];
