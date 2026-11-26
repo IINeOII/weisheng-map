@@ -65,7 +65,7 @@ export async function buildTiles(elements, osmTimestamp = null, gov = null) {
   // 政府資料的出處：App 詳細資料與「關於」頁要標示（政府資料開放授權條款，CONSTRAINTS.md C14）
   if (gov) {
     index.gov = { generatedAt: gov.generatedAt, sources: {} };
-    for (const [id, s] of Object.entries(gov.sources)) if (s.places) index.gov.sources[id] = { name: s.name, url: s.url, updated: s.updated };
+    for (const [id, s] of Object.entries(gov.sources)) if (s.places) index.gov.sources[id] = { name: s.name, url: s.url, updated: s.updated, ...(s.kind ? { kind: s.kind } : {}) };
   }
   for (const layerId of ["free", "cheap"]) {
     index.cells[layerId] = {};

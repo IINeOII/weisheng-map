@@ -87,7 +87,7 @@ export async function tiles(withGov = false) {
   if (!tilesCache.has(withGov)) {
     const els = [...FREE, ...CHEAP].map((e) => ({ type: e.type, id: e.id, lat: e.lat ?? e.center.lat, lon: e.lon ?? e.center.lon, tags: e.tags }));
     const dir = new URL("./gov/", import.meta.url);
-    const gov = withGov ? await importGov({ offline: fileURLToPath(dir), lookupFile: fileURLToPath(new URL("osm-lookup.ndjson", dir)), manualFile: fileURLToPath(new URL("coords.csv", dir)) }) : null;
+    const gov = withGov ? await importGov({ offline: fileURLToPath(dir), lookupFile: fileURLToPath(new URL("osm-lookup.ndjson", dir)), manualFile: fileURLToPath(new URL("coords.csv", dir)), partnersFile: fileURLToPath(new URL("./partners/sheet-download.csv", import.meta.url)) }) : null;
     tilesCache.set(withGov, await buildTiles(els, "2026-11-20T00:00:00Z", gov));
   }
   return tilesCache.get(withGov);

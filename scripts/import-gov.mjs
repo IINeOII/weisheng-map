@@ -13,6 +13,9 @@
  * 都找不到的列在「待補座標」，不放上地圖，也不猜位置（不使用逐筆線上地址查詢，見 CONSTRAINTS.md C15）。
  *
  * 某個資料集下載失敗時，改用上次成功的快取（--cache），並在報告中標示。
+ *
+ * 另外匯入合作團體提供的地點（sources/partners.csv，見 scripts/partners.mjs）：排在政府資料前面，
+ * 同一個地點同一類別時以合作團體的資料為主（有確認日期），政府資料的出處合併進來。
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -22,6 +25,7 @@ import { fetchDatasetMeta, download, decode, parseTable, pickCoords, cleanAddres
 import { DATASETS, exclusionReason } from "./gov-datasets.mjs";
 import { root } from "./lib.mjs";
 import { AREAS } from "./areas.mjs";
+import { readPartners, mapPartnerRow } from "./partners.mjs";
 
 /** 地址比對用：統一寫法，去掉縣市以外的樓層等細節 */
 export const addrKey = (a) => cleanAddress(a).replace(/(\d+)之(\d+)號/, "$1-$2號").replace(/(\d+)號之(\d+)$/, "$1-$2號");
@@ -96,10 +100,31 @@ async function loadDataset(ds, { offline, cache }) {
   }
 }
 
-export async function importGov({ offline, cache, lookupFile, manualFile = path.join(root, "sources/coords.csv"), datasets = DATASETS } = {}) {
+export async function importGov({ offline, cache, lookupFile, manualFile = path.join(root, "sources/coords.csv"), partnersFile = path.join(root, "sources/partners.csv"), datasets = DATASETS } = {}) {
   const lookup = await readLookup(lookupFile);
   const manual = readManual(manualFile);
   const sources = {}, raw = [], excluded = [];
+
+  // 合作團體：每個團體一個出處（p1、p2…），地點頁顯示「由○○提供、幾天前確認」
+  const partner = readPartners(partnersFile);
+  const orgId = new Map();
+  partner.rows.forEach((row, n) => {
+    const org = row["提供團體"] || "（沒有填團體）";
+    if (!orgId.has(org)) {
+      const id = `p${orgId.size + 1}`;
+      orgId.set(org, id);
+      sources[id] = { name: org, kind: "partner", city: "", title: org, updated: "", url: "", status: "ok", rows: 0, places: 0 };
+    }
+    const id = orgId.get(org);
+    sources[id].rows++;
+    const res = mapPartnerRow(row);
+    // 不公開的地點連名稱都不列（匯入報告會出現在公開的 Summary 頁）
+    if (!res.ok) { excluded.push({ source: id, name: res.why === "地址不公開" ? "（不公開的地點）" : row["地點名稱"] || "（沒有名稱）", why: res.why }); return; }
+    const m = res.place;
+    if (m.website && !sources[id].url) sources[id].url = m.website;
+    if (m.verified > sources[id].updated) sources[id].updated = m.verified;
+    raw.push({ ...m, source: id, row: n, given: null });
+  });
 
   for (const ds of datasets) {
     const { meta, rows, status } = await loadDataset(ds, { offline, cache });
@@ -155,12 +180,14 @@ export async function importGov({ offline, cache, lookupFile, manualFile = path.
       if (!p.g.includes(r.source)) { p.g.push(r.source); sources[r.source].places++; } // 合併進來的也算有用到，出處要標示
       if (!p.h && r.opening) p.h = r.opening;
       if (!p.p && r.phone) p.p = r.phone;
+      if (!p.v && r.verified) p.v = r.verified;
       continue;
     }
     const p = {
       i: `g${r.source}-${r.row}${r.category === "shelter" ? "s" : ""}`,
       a: +c[0].toFixed(6), o: +c[1].toFixed(6), c: r.category, n: r.name,
       d: cleanAddress(r.address), p: r.phone || undefined, h: r.opening || undefined, e: r.conditions || "", g: [r.source],
+      v: r.verified || undefined, w: r.website || undefined, // 合作團體：確認日期、網站
     };
     for (const key of Object.keys(p)) if (p[key] === undefined || p[key] === "") delete p[key];
     if (!p.e) p.e = "";
@@ -175,8 +202,19 @@ export async function importGov({ offline, cache, lookupFile, manualFile = path.
 
 /** GitHub Actions Summary 用的報告 */
 export function report(result) {
-  const lines = ["## 政府開放資料匯入", "", "| 資料集 | 狀態 | 原始筆數 | 放上地圖 |", "|---|---|---:|---:|"];
-  for (const [id, s] of Object.entries(result.sources)) lines.push(`| [${s.name}](${s.url}) | ${s.status} | ${s.rows} | ${s.places} |`);
+  const lines = ["## 政府開放資料與合作團體匯入", "", "| 來源 | 狀態 | 原始筆數 | 放上地圖 |", "|---|---|---:|---:|"];
+  for (const [id, s] of Object.entries(result.sources)) {
+    if (s.kind === "partner") continue;
+    lines.push(`| [${s.name}](${s.url}) | ${s.status} | ${s.rows} | ${s.places} |`);
+  }
+  const partners = Object.values(result.sources).filter((s) => s.kind === "partner");
+  if (partners.length) {
+    // 每兩個月請團體確認一次：最近確認日期超過 60 天的標出來
+    const today = new Date().toISOString().slice(0, 10);
+    const age = (d) => (d ? Math.floor((Date.parse(today) - Date.parse(d)) / 86400000) : null);
+    lines.push("", "| 合作團體 | 筆數 | 放上地圖 | 最近確認 |", "|---|---:|---:|---|");
+    for (const s of partners) lines.push(`| ${s.name} | ${s.rows} | ${s.places} | ${s.updated || "—"}${age(s.updated) > 60 ? " ⚠️ 超過 60 天，請聯絡團體確認" : ""} |`);
+  }
   lines.push("", `座標來源：${Object.entries(result.how).map(([k, v]) => `${k} ${v}`).join("、") || "無"}（OSM 對照表 ${result.lookupSize} 筆）`);
   if (result.excluded.length) {
     lines.push("", `<details><summary>依規則不放上地圖：${result.excluded.length} 筆</summary>`, "");

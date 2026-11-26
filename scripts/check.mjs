@@ -90,6 +90,29 @@ badRows.length ? fail(`sources/coords.csv 有 ${badRows.length} 筆地址空白�
     : fail(`首頁網頁字型共 ${Math.round(total / 1024)} KB，超過 ${FONT_BUDGET / 1024} KB：中文請用手機內建字型（CLAUDE.md B9）`);
 }
 
+// 合作團體資料（sources/partners.csv）：公開倉庫，不能有不公開的地址或備註；每列都要能上地圖；超過 60 天沒確認要提醒
+section("合作團體資料");
+{
+  const { readPartners, mapPartnerRow, leaks } = await import("./partners.mjs");
+  const file = p("sources/partners.csv");
+  if (!exists("sources/partners.csv")) ok("還沒有合作團體資料（sources/partners.csv）");
+  else {
+    const parsed = readPartners(file);
+    parsed.problems.forEach((x) => fail(`sources/partners.csv：${x}`));
+    leaks(parsed).forEach((x) => fail(`sources/partners.csv：${x}`));
+    const bad = parsed.rows.map((r) => [r, mapPartnerRow(r)]).filter(([, m]) => !m.ok && m.why !== "地址不公開");
+    bad.forEach(([r, m]) => fail(`sources/partners.csv「${r["地點名稱"] || "沒有名稱"}」：${m.why}`));
+    const today = Date.now();
+    const stale = {};
+    for (const r of parsed.rows) {
+      const m = mapPartnerRow(r);
+      if (m.ok && (today - Date.parse(m.place.verified)) / 86400000 > 60) stale[m.place.org] = (stale[m.place.org] || 0) + 1;
+    }
+    Object.entries(stale).forEach(([org, n]) => warn(`${org} 有 ${n} 筆超過 60 天沒確認：請聯絡團體確認後更新確認日期`));
+    if (!bad.length && !parsed.problems.length) ok(`sources/partners.csv ${parsed.rows.length} 筆已檢查`);
+  }
+}
+
 // 狀態機（docs/js/machines.js）：打錯的事件名稱在執行時只會「沒反應」，不會報錯，所以在這裡擋
 section("狀態機");
 {

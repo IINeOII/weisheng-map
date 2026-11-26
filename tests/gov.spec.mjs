@@ -13,7 +13,7 @@ import { twd97ToWgs84, decode, cleanAddress } from "../scripts/gov-lib.mjs";
 import { buildTiles, cellKey } from "../scripts/build-tiles.mjs";
 
 const FIX = "tests/fixtures/gov";
-const run = (opts = {}) => importGov({ offline: FIX, lookupFile: `${FIX}/osm-lookup.ndjson`, manualFile: `${FIX}/coords.csv`, ...opts });
+const run = (opts = {}) => importGov({ offline: FIX, lookupFile: `${FIX}/osm-lookup.ndjson`, manualFile: `${FIX}/coords.csv`, partnersFile: null, ...opts });
 const byName = (r, name, cat) => r.places.map((x) => x.p).find((p) => p.n === name && (!cat || p.c === cat));
 
 test.describe("政府開放資料", () => {
@@ -114,10 +114,10 @@ test.describe("政府開放資料", () => {
     }));
     process.env.GOV_API_BASE = "http://127.0.0.1:9"; // 連不上
     try {
-      const r = await importGov({ cache, datasets: ds, manualFile: path.join(cache, "none.csv") });
+      const r = await importGov({ cache, datasets: ds, manualFile: path.join(cache, "none.csv"), partnersFile: null });
       expect(r.sources["121332"].status).toContain("改用 2026-11-18");
       expect(r.places.map((x) => x.p.n)).toEqual(["臺北市快取中心"]);
-      const none = await importGov({ datasets: ds, manualFile: path.join(cache, "none.csv") });
+      const none = await importGov({ datasets: ds, manualFile: path.join(cache, "none.csv"), partnersFile: null });
       expect(none.sources["121332"].status).toContain("下載失敗");
       expect(none.places).toHaveLength(0);
     } finally { delete process.env.GOV_API_BASE; }
@@ -138,7 +138,7 @@ test.describe("政府開放資料", () => {
 test.describe("政府開放資料：2026-11-26 新增的資料集（充電、待用餐、社福、就業）", () => {
   test.skip(({ isMobile }) => isMobile, "和畫面尺寸無關，只跑一次");
   const MORE = "tests/fixtures/gov-more";
-  const run2 = () => importGov({ offline: MORE, lookupFile: `${MORE}/osm-lookup.ndjson`, manualFile: `${FIX}/coords.csv` });
+  const run2 = () => importGov({ offline: MORE, lookupFile: `${MORE}/osm-lookup.ndjson`, manualFile: `${FIX}/coords.csv`, partnersFile: null });
   const all = (r, cat) => r.places.map((x) => x.p).filter((p) => !cat || p.c === cat);
 
   test("免費手機充電站：去掉郵遞區號、同一個車站的多個充電點合併、寫明資料可能過期", async () => {
